@@ -115,6 +115,59 @@ struct Color {
     }
 };
 
+//-----------------------------------------------
+// Kontroll pont. 
+//-----------------------------------------------
+struct ControlPoint
+{
+    Vector cp;
+    Vector v;
+    Vector a;
+    
+    ControlPoint() {};
+    
+    ControlPoint(Vector _cp) : cp(_cp) {}
+    
+    ControlPoint(Vector _cp, Vector _v, Vector _a) :
+    cp(_cp), v(_v), a(_a) {}
+};
+
+struct RussianSpline
+{
+    ControlPoint *cps;
+    int numCtrlPts;
+    
+    RussianSpline()
+    {
+        cps = new ControlPoint[100];
+        numCtrlPts = 0;
+    }
+    
+    ~RussianSpline()
+    {
+        delete[] cps;
+    }
+    
+    void addControlPoint(Vector cp)
+    {
+        if(numCtrlPts < 100)
+        {
+            cps[numCtrlPts++] = cp;
+        }
+    }
+    
+    void drawCtrlPts()
+    {
+        glColor3f(1.0,1.0,0.0);
+        glBegin(GL_POINTS);
+            for(int i = 0;i<numCtrlPts;++i)
+            {
+                glVertex2f(cps[i].cp.x, cps[i].cp.y);
+            }
+        glEnd();
+        glutSwapBuffers();
+    }
+};
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
@@ -122,7 +175,7 @@ const int screenHeight = 600;
 
 Color image[screenWidth*screenHeight];	// egy alkalmazás ablaknyi kép
 
-
+RussianSpline spline;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( ) { 
     glViewport(0, 0, screenWidth, screenHeight);
@@ -134,6 +187,16 @@ void onInitialization( ) {
 
 }
 
+float normCoordX(float x)
+{
+    return x*(2.0f/screenWidth) - 1.0f;
+}
+
+float normCoordY(float y)
+{
+    return (screenHeight - y)*(2.0f/screenHeight) - 1.0f;
+}
+
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( ) {
     glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
@@ -142,16 +205,17 @@ void onDisplay( ) {
     // ..
 
     // Peldakent atmasoljuk a kepet a rasztertarba
-    glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
-    // Majd rajzolunk egy kek haromszoget
-    glColor3f(0, 0, 1);
-    glBegin(GL_TRIANGLES);
-    glVertex2f(-0.2f, -0.2f);
-    glVertex2f( 0.2f, -0.2f);
-    glVertex2f( 0.0f,  0.2f);
-    glEnd( );
+    //~ glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
+    //~ // Majd rajzolunk egy kek haromszoget
+    //~ glColor3f(0, 0, 1);
+    //~ glBegin(GL_TRIANGLES);
+    //~ glVertex2f(-0.2f, -0.2f);
+    //~ glVertex2f( 0.2f, -0.2f);
+    //~ glVertex2f( 0.0f,  0.2f);
+    //~ glEnd( );
 
     // ...
+    spline.drawCtrlPts();
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -170,8 +234,10 @@ void onKeyboardUp(unsigned char key, int x, int y) {
 
 // Eger esemenyeket lekezelo fuggveny
 void onMouse(int button, int state, int x, int y) {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {  // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
+        spline.addControlPoint(Vector(normCoordX(x),normCoordY(y)));
         glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
+    }
 }
 
 // Eger mozgast lekezelo fuggveny
