@@ -65,7 +65,8 @@
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
-struct Vector {
+struct Vector
+{
     float x, y, z;
 
     Vector( )
@@ -107,7 +108,8 @@ struct Vector {
 //--------------------------------------------------------
 // Spektrum illetve szin
 //--------------------------------------------------------
-struct Color {
+struct Color
+{
     float r, g, b;
 
     Color( )
@@ -137,7 +139,8 @@ struct Color {
 //-----------------------------------------------
 // Kontroll pont
 //-----------------------------------------------
-struct ControlPoint {
+struct ControlPoint
+{
     Vector cp;
     Vector v;
     Vector a;
@@ -152,7 +155,8 @@ struct ControlPoint {
         cp(_cp), v(_v), a(_a) {}
 };
 
-struct RussianSpline {
+struct RussianSpline
+{
     ControlPoint *cps;
     int numCtrlPts;
 
@@ -169,7 +173,8 @@ struct RussianSpline {
 
     void addControlPoint(Vector cp, long _t)
     {
-        if(numCtrlPts < 100) {
+        if(numCtrlPts < 100)
+        {
             cps[numCtrlPts++] = ControlPoint(cp,_t);
         }
     }
@@ -178,7 +183,8 @@ struct RussianSpline {
     {
         glColor3f(1.0,1.0,0.0);
         glBegin(GL_POINTS);
-        for(int i = 0; i<numCtrlPts; ++i) {
+        for(int i = 0; i<numCtrlPts; ++i)
+        {
             glVertex2f(cps[i].cp.x, cps[i].cp.y);
         }
         glEnd();
@@ -201,7 +207,8 @@ void onInitialization( )
 
     // Peldakent keszitunk egy kepet az operativ memoriaba
     for(int Y = 0; Y < screenHeight; Y++)
-        for(int X = 0; X < screenWidth; X++) {
+        for(int X = 0; X < screenWidth; X++)
+        {
             image[Y*screenWidth + X] = Color((float)X/screenWidth, (float)Y/screenHeight, 0);
         }
 
@@ -245,7 +252,8 @@ void onDisplay( )
 // Billentyuzet esemenyeket lekezelo fuggveny (lenyomas)
 void onKeyboard(unsigned char key, int x, int y)
 {
-    if (key == 'd') {
+    if (key == 'd')
+    {
         glutPostRedisplay( );    // d beture rajzold ujra a kepet
     }
 
@@ -257,10 +265,11 @@ void onKeyboardUp(unsigned char key, int x, int y)
 
 }
 
-// Eger esemenyeket lekezelo fuggvenŝy
+// Eger esemenyeket lekezelo fuggveny
 void onMouse(int button, int state, int x, int y)
 {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {  // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)    // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
+    {
         long tsec = glutGet(GLUT_ELAPSED_TIME);
         spline.addControlPoint(Vector(normCoordX(x),normCoordY(y)), tsec);
         glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
