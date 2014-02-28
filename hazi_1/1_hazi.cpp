@@ -62,6 +62,8 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
+#include <iostream>
+
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -102,6 +104,11 @@ struct Vector
     float Length()
     {
         return sqrt(x * x + y * y + z * z);
+    }
+
+    bool operator==(const Vector& v)
+    {
+        return (x == v.x && y == v.y && z == v.z);
     }
 };
 
@@ -179,18 +186,44 @@ struct RussianSpline
         }
     }
 
+
+
     void drawCtrlPts()
     {
-        glColor3f(1.0,1.0,0.0);
+        glColor3f(1.0, 1.0, 1.0);
         glBegin(GL_POINTS);
         for(int i = 0; i<numCtrlPts; ++i)
         {
             glVertex2f(cps[i].cp.x, cps[i].cp.y);
         }
         glEnd();
-        glutSwapBuffers();
     }
 };
+
+
+typedef enum
+{
+    ADDING_POINTS,      // Kontrollpontok hozzáadása
+    SETTING_UP_VECTORS, // Kezdeti gyorsulás és sebesség beállítása
+    IPAD                // Körbenézegetés
+} PROGSTATE;
+
+PROGSTATE prog_state = ADDING_POINTS;
+
+typedef enum
+{
+    NONE,
+    B1CLK,
+    B2CLK,
+    B3CLK
+} BCLK;
+
+BCLK clickType = NONE;
+long lastClickTime = 0;
+Vector lastMousePos;
+
+bool velocitySetup = false;
+bool accelSetup = false;
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
@@ -199,6 +232,7 @@ const int screenHeight = 600;
 Color image[screenWidth*screenHeight];	// egy alkalmazás ablaknyi kép
 
 RussianSpline spline;
+
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( )
@@ -271,7 +305,37 @@ void onMouse(int button, int state, int x, int y)
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)    // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
     {
         long tsec = glutGet(GLUT_ELAPSED_TIME);
-        spline.addControlPoint(Vector(normCoordX(x),normCoordY(y)), tsec);
+        Vector curMousePos( normCoordX(x), normCoordY(y) );
+        if(tsec - lastClickTime <= 300 && clickType < B3CLK && curMousePos == lastMousePos)
+        {
+            clickType = (BCLK)((int)clickType + 1);
+        }
+        else
+        {
+            clickType = B1CLK;
+        }
+        lastClickTime = tsec;
+        lastMousePos = curMousePos;
+        std::cout << "CLK: " << clickType << ", state: " << prog_state << std::endl;
+
+        switch(clickType)
+        {
+        case B1CLK:
+            if(prog_state == ADDING_POINTS)
+            {
+                spline.addControlPoint(lastMousePos, tsec);
+            }
+            break;
+        case B2CLK:
+            prog_state = SETTING_UP_VECTORS;
+            break;
+        case B3CLK:
+            prog_state = SETTING_UP_VECTORS;
+            break;
+        default:
+            break;
+        }
+
         glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
     }
 }
@@ -279,7 +343,11 @@ void onMouse(int button, int state, int x, int y)
 // Eger mozgast lekezelo fuggveny
 void onMouseMotion(int x, int y)
 {
-
+    // Ha még nem az iPad szerű nézegetés állapotban vagyunk, akkor ez a függvény nem érdekel minket.
+    if(prog_state != IPAD)
+    {
+        return;
+    }
 }
 
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
