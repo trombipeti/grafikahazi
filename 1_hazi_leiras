@@ -1,0 +1,9 @@
+Készítsen Джугашвили-spline-t alkalmazó rajzolóprogramot! A Джугашвили-spline-ban minden két kontrollpont között egy görbeszegmens található, amit a két interpolálandó pont, az azokban felvett sebesség és a kezdeti gyorsulásvektor határoz meg. A felhasználó az egér balgomb egyszeri lenyomással/elengedéssel (B1CLK) veszi fel a kontrollpontokat (max 100-at), amelyek paramétere az aktuális idő lesz sec egységben, majd balgomb dupla klikkel (B2CLK) kijelölt pont és az első pont közötti vektort rendeli a legelső kontrollponthoz, tripla klikkel (B3CLK) pedig ugyanígy tesz a gyorsulásvektorral. A többi belső kontrollpontban a sebességvektor az előző kontrollpont és a jelenlegi kontrollpont közötti egyenesvonalú egyenletes mozgás sebességének és a jelenlegi és rákövetkező pont közötti egyenesvonalú mozgás sebességének az átlaga. A legutolsó kontrollpontban a sebesség zérus. A legelső szegmenst kivéve, a kezdeti gyorsulás az előző szegmens végpontjában kiadódó gyorsulással egyezik meg.
+
+A B[1|2|3]CLK műveletek alatt az egér nem mozdul meg, B2CLK esetén két lenyomásnak 0.3 sec-on belül, B3CLK esetén három lenyomásnak kell jönnie úgy, hogy kettő között max 0.3 sec idő telik el.
+
+Kezdetben a képernyőn a (x=100..200m; y=300..400m) része látszik a virtuális világnak. A kameraablakot ipad-esen lehet mozgatni, azaz a bal egérgombot lenyomva elrántjuk az egeret egy irányba (BMOV), és az indításhoz képest 0.5 sec múlva mért elmozdulásvektor ellentettjének harmadát tekintjük az ablak kezdeti sebességének. A súrlódási együtthatót úgy kell beállítani, hogy a legnagyobb rántás esetén is a kép mozgása 50%-t elmozdulás után megáll. A space lenyomásával egy kört indítunk el a görbén, amely a paramétert időnek tekintve végiganimál rajta.
+
+Minden olyan részletkérdésben, amit a fenti szöveg nem specifikál, szabadon lehet dönteni.
+
+Beadási határidő: 2014. 03. 16. 23:59
