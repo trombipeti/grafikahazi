@@ -164,18 +164,12 @@ struct ControlPoint
 
 struct RussianSpline
 {
-    ControlPoint *cps;
+    ControlPoint cps[100];
     int numCtrlPts;
 
     RussianSpline()
     {
-        cps = new ControlPoint[100];
         numCtrlPts = 0;
-    }
-
-    ~RussianSpline()
-    {
-        delete[] cps;
     }
 
     void addControlPoint(Vector cp, long _t)
@@ -191,7 +185,7 @@ struct RussianSpline
     void drawCtrlPts()
     {
         glColor3f(1.0, 1.0, 1.0);
-        glBegin(GL_POINTS);
+        glBegin(GL_LINE_STRIP);
         for(int i = 0; i<numCtrlPts; ++i)
         {
             glVertex2f(cps[i].cp.x, cps[i].cp.y);
@@ -222,31 +216,19 @@ BCLK clickType = NONE;
 long lastClickTime = 0;
 Vector lastMousePos;
 
-bool velocitySetup = false;
+bool startVectorSetup = false;
 bool accelSetup = false;
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
 
-
-Color image[screenWidth*screenHeight];	// egy alkalmazás ablaknyi kép
-
 RussianSpline spline;
 
+float px, py;
+float phi;
+float sx, sy;
 
-// Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
-void onInitialization( )
-{
-    glViewport(0, 0, screenWidth, screenHeight);
-
-    // Peldakent keszitunk egy kepet az operativ memoriaba
-    for(int Y = 0; Y < screenHeight; Y++)
-        for(int X = 0; X < screenWidth; X++)
-        {
-            image[Y*screenWidth + X] = Color((float)X/screenWidth, (float)Y/screenHeight, 0);
-        }
-
-}
+double wl, wr, wb, wt;
 
 float normCoordX(float x)
 {
@@ -258,16 +240,37 @@ float normCoordY(float y)
     return (screenHeight - y)*(2.0f/screenHeight) - 1.0f;
 }
 
+
+// Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
+void onInitialization( )
+{
+    glViewport(0, 0, screenWidth, screenHeight);
+
+    phi = 0.0f;
+    sx = 1.0f;
+    sy = 1.0f;
+
+    wl = 100;
+    wr = 200;
+    wb = 300;
+    wt = 400;
+
+    glMatrixMode(GL_PROJECTION);
+    gluOrtho2D(wl,wr,wb,wt);
+
+}
+
+
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( )
 {
-    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
+//    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
 
     // Peldakent atmasoljuk a kepet a rasztertarba
-    //~ glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
+    // glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
     //~ // Majd rajzolunk egy kek haromszoget
     //~ glColor3f(0, 0, 1);
     //~ glBegin(GL_TRIANGLES);
@@ -277,7 +280,65 @@ void onDisplay( )
     //~ glEnd( );
 
     // ...
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(wl,wr,wb,wt);
+
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glTranslatef(px,py,0.0f);
+    glRotatef(phi,0.0f,0.0f,1.0f);
+    glScalef(sx,sy,1.0f);
+
     spline.drawCtrlPts();
+
+    glLineWidth(1);
+    glBegin(GL_LINES);
+    {
+        // Négyzetrács
+        for(int i = -1000; i <= 1000; i = i + 10) {
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glVertex2f(i, -1000);
+            glVertex2f(i, +1000);
+
+            glVertex2f(-1000, i);
+            glVertex2f(+1000, i);
+        }
+    }
+    glEnd();
+
+    glLineWidth(4);
+    glBegin(GL_LINES);
+    {
+        // X tengely
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glVertex2f(-5.0f, 0.0f);
+        glVertex2f(5.0f, 0.0f);
+        glVertex2f(4.5f, 0.5f);
+        glVertex2f(5.0f, 0.0f);
+        glVertex2f(4.5f, -0.5f);
+        glVertex2f(5.0f, 0.0f);
+
+        // Y tengely
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glVertex2f(0.0f, -5.0f);
+        glVertex2f(0.0f, 5.0f);
+        glVertex2f(0.5f, 4.5f);
+        glVertex2f(0.0f, 5.0f);
+        glVertex2f(-0.5f, 4.5f);
+        glVertex2f(0.0f, 5.0f);
+    }
+    glEnd();
+
+//    glBegin(GL_QUADS);
+//    {
+//        glVertex2f(153.0f,310.0f);
+//        glVertex2f(193.0f,310.0f);
+//        glVertex2f(193.0f,380.0f);
+//        glVertex2f(153.0f,380.0f);
+//    } glEnd();
+
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -305,7 +366,9 @@ void onMouse(int button, int state, int x, int y)
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)    // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
     {
         long tsec = glutGet(GLUT_ELAPSED_TIME);
-        Vector curMousePos( normCoordX(x), normCoordY(y) );
+
+        Vector curMousePos( normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0,
+                            normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0);
         if(tsec - lastClickTime <= 300 && clickType < B3CLK && curMousePos == lastMousePos)
         {
             clickType = (BCLK)((int)clickType + 1);
@@ -328,9 +391,21 @@ void onMouse(int button, int state, int x, int y)
             break;
         case B2CLK:
             prog_state = SETTING_UP_VECTORS;
+
+            startVectorSetup = true;
+            if(accelSetup)
+            {
+                prog_state = IPAD;
+            }
             break;
         case B3CLK:
             prog_state = SETTING_UP_VECTORS;
+
+            accelSetup = true;
+            if(startVectorSetup)
+            {
+                prog_state = IPAD;
+            }
             break;
         default:
             break;
