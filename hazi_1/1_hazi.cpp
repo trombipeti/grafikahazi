@@ -196,6 +196,17 @@ struct RussianSpline
             }
             glEnd();
         }
+        for(int i = 1;i<numCtrlPts; ++i)
+        {
+            glBegin(GL_POINTS);
+            for(long t = 0; t < cps[i].t - cps[i-1].t; ++t)
+            {
+                float tabs = (float)t/(cps[i].t - cps[i-1].t);
+                Vector xy = (cps[i-1].cp + (cps[i].cp - cps[i-1].cp)*tabs );
+                glVertex2f(xy.x, xy.y);
+            }
+            glEnd();
+        }
     }
 };
 
@@ -215,12 +226,14 @@ typedef enum
     NONE,
     B1CLK,
     B2CLK,
-    B3CLK
+    B3CLK,
+    BMOV
 } BCLK;
 
 BCLK clickType = NONE;
 long lastClickTime = 0;
-Vector lastMousePos;
+Vector lastCPPos;
+Vector lastMousePosNorm;
 
 bool startVectorSetup = false;
 bool accelSetup = false;
@@ -231,6 +244,7 @@ const int screenHeight = 600;
 RussianSpline spline;
 
 float px, py;
+Vector p_eltol;
 float phi;
 float sx, sy;
 
@@ -286,6 +300,8 @@ void onDisplay( )
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    px += p_eltol.x * 0.3;
+    py += p_eltol.y * 0.3;
     glTranslatef(px,py,0.0f);
     glRotatef(phi,0.0f,0.0f,1.0f);
     glScalef(sx,sy,1.0f);
@@ -328,9 +344,9 @@ void onMouse(int button, int state, int x, int y)
     {
         long tsec = glutGet(GLUT_ELAPSED_TIME);
 
-        Vector curMousePos( normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0,
-                            normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0);
-        if(tsec - lastClickTime <= 300 && clickType < B3CLK && curMousePos == lastMousePos)
+        Vector curCPPos( normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0 - px,
+                            normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0 - py);
+        if(tsec - lastClickTime <= 300 && clickType < B3CLK && curCPPos == lastCPPos)
         {
             clickType = (BCLK)((int)clickType + 1);
         }
@@ -339,15 +355,16 @@ void onMouse(int button, int state, int x, int y)
             clickType = B1CLK;
         }
         lastClickTime = tsec;
-        lastMousePos = curMousePos;
-        std::cout << "CLK: " << clickType << ", state: " << prog_state << std::endl;
+        lastMousePosNorm = Vector(normCoordX(x), normCoordY(y));
+        lastCPPos = curCPPos;
+//        std::cout << "CLK: " << clickType << ", state: " << prog_state << std::endl;
 
         switch(clickType)
         {
         case B1CLK:
             if(prog_state == ADDING_POINTS)
             {
-                spline.addControlPoint(lastMousePos, tsec);
+                spline.addControlPoint(lastCPPos, tsec);
             }
             break;
         case B2CLK:
@@ -374,12 +391,38 @@ void onMouse(int button, int state, int x, int y)
 
         glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
     }
+    else if(state == GLUT_UP && prog_state == VECTORS_SETUP)
+    {
+        long tsec = glutGet(GLUT_ELAPSED_TIME);
+        if(tsec - lastClickTime >= 500 || 1)
+        {
+            Vector curMousePos(normCoordX(x), normCoordY(y));
+            if(! (curMousePos == lastMousePosNorm))
+            {
+                clickType = BMOV;
+                px *= ((lastMousePosNorm - curMousePos)).x;
+                py *= ((lastMousePosNorm - curMousePos)).y;
+                std::cout << px << " <---> " << py << std::endl;
+            }
+        }
+    }
+    glutPostRedisplay();
 }
 
 // Eger mozgast lekezelo fuggveny
 void onMouseMotion(int x, int y)
 {
-
+    long t = glutGet(GLUT_ELAPSED_TIME);
+    std::cout << t - lastClickTime << std::endl;
+    if(t - lastClickTime >= 500 && clickType != BMOV && prog_state == VECTORS_SETUP)
+    {
+        clickType = BMOV;
+        Vector curMousePos(normCoordX(x), normCoordY(y));
+        px += ((lastMousePosNorm - curMousePos)).x;
+        py += ((lastMousePosNorm - curMousePos)).y;
+        std::cout << px << " --- " << py << std::endl;
+    }
+    glutPostRedisplay();
 }
 
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
