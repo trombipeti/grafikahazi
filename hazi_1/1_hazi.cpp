@@ -185,12 +185,17 @@ struct RussianSpline
     void drawCtrlPts()
     {
         glColor3f(1.0, 1.0, 1.0);
-        glBegin(GL_LINE_STRIP);
         for(int i = 0; i<numCtrlPts; ++i)
         {
-            glVertex2f(cps[i].cp.x, cps[i].cp.y);
+            glBegin(GL_TRIANGLE_FAN);
+            for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
+            {
+                float x = cps[i].cp.x + sin(angle);
+                float y = cps[i].cp.y + cos(angle);
+                glVertex2f(x,y);
+            }
+            glEnd();
         }
-        glEnd();
     }
 };
 
@@ -199,7 +204,8 @@ typedef enum
 {
     ADDING_POINTS,      // Kontrollpontok hozzáadása
     SETTING_UP_VECTORS, // Kezdeti gyorsulás és sebesség beállítása
-    IPAD                // Körbenézegetés
+    VECTORS_SETUP,      // Készen van minden, lehet nyomni a space-t
+    ANIMATING           // Körbenézegetés
 } PROGSTATE;
 
 PROGSTATE prog_state = ADDING_POINTS;
@@ -246,6 +252,8 @@ void onInitialization( )
 {
     glViewport(0, 0, screenWidth, screenHeight);
 
+    px = 0.0f;
+    py = 0.0f;
     phi = 0.0f;
     sx = 1.0f;
     sy = 1.0f;
@@ -264,20 +272,11 @@ void onInitialization( )
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( )
 {
-//    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
+    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
 
-    // Peldakent atmasoljuk a kepet a rasztertarba
-    // glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
-    //~ // Majd rajzolunk egy kek haromszoget
-    //~ glColor3f(0, 0, 1);
-    //~ glBegin(GL_TRIANGLES);
-    //~ glVertex2f(-0.2f, -0.2f);
-    //~ glVertex2f( 0.2f, -0.2f);
-    //~ glVertex2f( 0.0f,  0.2f);
-    //~ glEnd( );
 
     // ...
     glMatrixMode(GL_PROJECTION);
@@ -293,52 +292,6 @@ void onDisplay( )
 
     spline.drawCtrlPts();
 
-    glLineWidth(1);
-    glBegin(GL_LINES);
-    {
-        // Négyzetrács
-        for(int i = -1000; i <= 1000; i = i + 10) {
-            glColor3f(1.0f, 1.0f, 1.0f);
-            glVertex2f(i, -1000);
-            glVertex2f(i, +1000);
-
-            glVertex2f(-1000, i);
-            glVertex2f(+1000, i);
-        }
-    }
-    glEnd();
-
-    glLineWidth(4);
-    glBegin(GL_LINES);
-    {
-        // X tengely
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glVertex2f(-5.0f, 0.0f);
-        glVertex2f(5.0f, 0.0f);
-        glVertex2f(4.5f, 0.5f);
-        glVertex2f(5.0f, 0.0f);
-        glVertex2f(4.5f, -0.5f);
-        glVertex2f(5.0f, 0.0f);
-
-        // Y tengely
-        glColor3f(0.0f, 1.0f, 0.0f);
-        glVertex2f(0.0f, -5.0f);
-        glVertex2f(0.0f, 5.0f);
-        glVertex2f(0.5f, 4.5f);
-        glVertex2f(0.0f, 5.0f);
-        glVertex2f(-0.5f, 4.5f);
-        glVertex2f(0.0f, 5.0f);
-    }
-    glEnd();
-
-//    glBegin(GL_QUADS);
-//    {
-//        glVertex2f(153.0f,310.0f);
-//        glVertex2f(193.0f,310.0f);
-//        glVertex2f(193.0f,380.0f);
-//        glVertex2f(153.0f,380.0f);
-//    } glEnd();
-
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -350,6 +303,14 @@ void onKeyboard(unsigned char key, int x, int y)
     if (key == 'd')
     {
         glutPostRedisplay( );    // d beture rajzold ujra a kepet
+    }
+    else if (key == ' ')
+    {
+        if(prog_state == VECTORS_SETUP || prog_state == ANIMATING)
+        {
+            prog_state = ANIMATING;
+            // Animáció indítása...
+        }
     }
 
 }
@@ -395,7 +356,7 @@ void onMouse(int button, int state, int x, int y)
             startVectorSetup = true;
             if(accelSetup)
             {
-                prog_state = IPAD;
+                prog_state = VECTORS_SETUP;
             }
             break;
         case B3CLK:
@@ -404,7 +365,7 @@ void onMouse(int button, int state, int x, int y)
             accelSetup = true;
             if(startVectorSetup)
             {
-                prog_state = IPAD;
+                prog_state = VECTORS_SETUP;
             }
             break;
         default:
@@ -418,11 +379,7 @@ void onMouse(int button, int state, int x, int y)
 // Eger mozgast lekezelo fuggveny
 void onMouseMotion(int x, int y)
 {
-    // Ha még nem az iPad szerű nézegetés állapotban vagyunk, akkor ez a függvény nem érdekel minket.
-    if(prog_state != IPAD)
-    {
-        return;
-    }
+
 }
 
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
