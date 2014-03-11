@@ -171,18 +171,21 @@ struct RussianSpline
     int numCtrlPts;
     Vector v0;
     Vector all_a[100];
-    int numAknown;
+    int known_a[100];
 
     RussianSpline()
     {
         numCtrlPts = 0;
-        numAknown = 0;
+        for(int i = 0; i<100;++i)
+        {
+            known_a[i] = 0;
+        }
     }
 
     void setA0(const Vector& a)
     {
         all_a[0] = a;
-        numAknown = 1;
+        known_a[0] = 1;
     }
 
     void addControlPoint(const Vector& cp)
@@ -205,6 +208,10 @@ struct RussianSpline
 //            std::cout << all_a[0].x << "," << all_a[0].y << std::endl;
             return all_a[0];
         }
+        else if(known_a[i] == 1)
+        {
+            return all_a[i];
+        }
         else
         {
 //            _a[2] = 0.5f * a(i);
@@ -213,22 +220,22 @@ struct RussianSpline
 
             Vector _a2 = 0.5f * a(i-1);
 
-            Vector _a3 = p(i) - v(i) + a(i-1) - 3*v(i-1) - p(i-1);
-
-            Vector _a4 = v(i) - 3*p(i-1) + 0.5f*a(i-1) + 2*v(i-1);
+            Vector _a3 = 4*p(i) - v(i) - a(i-1) - 3*v(i-1) - 4*p(i-1);
+            Vector _a4 = v(i) - 3*p(i) + 0.5f*a(i-1) + 2*v(i-1) + 3*p(i-1);
 
             Vector ret = 12*_a4*pow(t(i) - t(i-1),2) + 6*_a3*(t(i) - t(i-1)) + 2*_a2;
-            if(all_a[0] != Vector(0,0,0))
-            {
-                std::cout << (i-1) << "a: " << (2*_a2).x << "," << (2*_a2).y << " ";
-                std::cout << "p(i): " << p(i).x << "," << p(i).y << ", v(i): " << v(i).x << "," << v(i).y << " ";
-                std::cout << ", v(i-1): " << v(i-1).x << "," << v(i-1).y << ", p(i-1): " << p(i-1).x << "," << p(i-1).y << " ";
-                std::cout << "_a3: " << _a3.x << "," << _a3.y << " ";
-                std::cout << "_a4: " << _a4.x << "," << _a4.y << " ";
-                std::cout << "t(i) - t(i-1): " << t(i) - t(i-1) << " ";
-                std::cout << "ret: " << ret.x << "," << ret.y << "\n\n\n" << std::endl;
-            }
-
+//            if(all_a[0] != Vector(0,0,0))
+//            {
+//                std::cout << (i-1) << "a: " << (2*_a2).x << "," << (2*_a2).y << " ";
+//                std::cout << "p(i): " << p(i).x << "," << p(i).y << ", v(i): " << v(i).x << "," << v(i).y << " ";
+//                std::cout << ", v(i-1): " << v(i-1).x << "," << v(i-1).y << ", p(i-1): " << p(i-1).x << "," << p(i-1).y << " ";
+//                std::cout << "_a3: " << _a3.x << "," << _a3.y << " ";
+//                std::cout << "_a4: " << _a4.x << "," << _a4.y << " ";
+//                std::cout << "t(i) - t(i-1): " << t(i) - t(i-1) << " ";
+//                std::cout << "ret: " << ret.x << "," << ret.y << "\n\n\n" << std::endl;
+//            }
+            all_a[i] = ret;
+            known_a[i] = 1;
             return ret;
         }
     }
@@ -281,13 +288,13 @@ struct RussianSpline
         Vector _a[5];
         _a[0] = p(i);
         _a[1] = v(i);
-        _a[2] =  3*(p(i+1) - p(i)) / pow(t(i+1) - t(i), 2) -
-                (v(i+1) + 2*v(i))  /    (t(i+1) - t(i));
-        _a[3] =  2*(p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) +
-                (v(i+1) + v(i))    / pow(t(i+1) - t(i), 2);
-//        _a[2] = 0.5f * a(i);
-//        _a[3] = p(i+1) - v(i+1) + a(i) - 3*v(i) - p(i);
-//        _a[4] = v(i+1) - 3*p(i) + 0.5f*a(i) + 2*v(i);
+//        _a[2] =  3*(p(i+1) - p(i)) / pow(t(i+1) - t(i), 2) -
+//                (v(i+1) + 2*v(i))  /    (t(i+1) - t(i));
+//        _a[3] =  2*(p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) +
+//                (v(i+1) + v(i))    / pow(t(i+1) - t(i), 2);
+        _a[2] = 0.5f * a(i);
+        _a[3] = 4*p(i+1) - v(i+1) - a(i) - 3*v(i) - 4*p(i);
+        _a[4] = v(i+1) - 3*p(i+1) + 0.5f*a(i) + 2*v(i) + 3*p(i);
 
         Vector r;
         for(int j = 0; j<5; ++j)
@@ -507,7 +514,7 @@ void onDisplay( )
     if(prog_state == ANIMATING)
     {
         Vector r = spline.r((time - anim_start)/1000.0f);
-        std::cout << (time - anim_start)/1000.0f << std::endl;
+//        std::cout << (time - anim_start)/1000.0f << std::endl;
         wl = r.x - 10;
         wr = r.x + 10;
         wb = r.y - 10;
