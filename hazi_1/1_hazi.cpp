@@ -82,51 +82,57 @@ struct Vector
         y = y0;
         z = z0;
     }
-    Vector operator*(float a)
-    {
-        return Vector(x * a, y * a, z * a);
-    }
 
     Vector operator/(float a)
     {
         return Vector(x / a, y / a, z / a);
     }
 
-    Vector operator+(const Vector& v)
+    Vector operator+(const Vector& v) const
     {
         return Vector(x + v.x, y + v.y, z + v.z);
     }
-    Vector operator-(const Vector& v)
+    Vector operator-(const Vector& v) const
     {
         return Vector(x - v.x, y - v.y, z - v.z);
     }
 
-    float operator*(const Vector& v)   	// dot product
+    Vector operator*(const Vector& v) const
     {
-        return (x * v.x + y * v.y + z * v.z);
+        return Vector(x * v.x, y * v.y, z * v.z);
     }
 
-    Vector operator%(const Vector& v)   	// cross product
+    Vector operator/(const Vector& v) const
+    {
+        return Vector(x / v.x, y / v.y, z / v.z);
+    }
+
+    Vector operator%(const Vector& v) const     // cross product
     {
         return Vector(y * v.z - z * v.y,
                       z * v.x - x * v.z,
                       x * v.y - y * v.x);
     }
-    float Length()
+    float Length() const
     {
         return sqrt(x * x + y * y + z * z);
     }
 
-    bool operator==(const Vector& v)
+    bool operator==(const Vector& v) const
     {
         return (x == v.x && y == v.y && z == v.z);
     }
 
-    bool operator!=(const Vector& v)
+    bool operator!=(const Vector& v) const
     {
         return !(*this == v);
     }
 };
+
+Vector operator*(float f, const Vector& v)
+{
+    return (Vector)v * Vector(f,f,f);
+}
 
 //--------------------------------------------------------
 // Spektrum illetve szin
@@ -164,11 +170,19 @@ struct RussianSpline
     Vector cps[100];
     int numCtrlPts;
     Vector v0;
-    Vector a0;
+    Vector all_a[100];
+    int numAknown;
 
     RussianSpline()
     {
         numCtrlPts = 0;
+        numAknown = 0;
+    }
+
+    void setA0(const Vector& a)
+    {
+        all_a[0] = a;
+        numAknown = 1;
     }
 
     void addControlPoint(const Vector& cp)
@@ -184,7 +198,42 @@ struct RussianSpline
         return cps[i].z - cps[0].z;
     }
 
-    Vector v(int i )
+    Vector a(int i)
+    {
+        if(i == 0)
+        {
+//            std::cout << all_a[0].x << "," << all_a[0].y << std::endl;
+            return all_a[0];
+        }
+        else
+        {
+//            _a[2] = 0.5f * a(i);
+//            _a[3] = p(i+1) - v(i+1) + a(i) - 3*v(i) - p(i);
+//            _a[4] = v(i+1) - 3*p(i) + 0.5f*a(i) + 2*v(i);
+
+            Vector _a2 = 0.5f * a(i-1);
+
+            Vector _a3 = p(i) - v(i) + a(i-1) - 3*v(i-1) - p(i-1);
+
+            Vector _a4 = v(i) - 3*p(i-1) + 0.5f*a(i-1) + 2*v(i-1);
+
+            Vector ret = 12*_a4*pow(t(i) - t(i-1),2) + 6*_a3*(t(i) - t(i-1)) + 2*_a2;
+            if(all_a[0] != Vector(0,0,0))
+            {
+                std::cout << (i-1) << "a: " << (2*_a2).x << "," << (2*_a2).y << " ";
+                std::cout << "p(i): " << p(i).x << "," << p(i).y << ", v(i): " << v(i).x << "," << v(i).y << " ";
+                std::cout << ", v(i-1): " << v(i-1).x << "," << v(i-1).y << ", p(i-1): " << p(i-1).x << "," << p(i-1).y << " ";
+                std::cout << "_a3: " << _a3.x << "," << _a3.y << " ";
+                std::cout << "_a4: " << _a4.x << "," << _a4.y << " ";
+                std::cout << "t(i) - t(i-1): " << t(i) - t(i-1) << " ";
+                std::cout << "ret: " << ret.x << "," << ret.y << "\n\n\n" << std::endl;
+            }
+
+            return ret;
+        }
+    }
+
+    Vector v(int i)
     {
         if(i == 0)
         {
@@ -196,11 +245,16 @@ struct RussianSpline
         }
         else
         {
-            Vector elozo = (cps[i] - cps[i-1]) / (t(i) - t(i-1));
-            Vector kovi  = (cps[i+1] - cps[i]) / (t(i+1) - t(i));
+            Vector elozo = (p(i) - p(i-1)) / (t(i) - t(i-1));
+            Vector kovi  = (p(i+1) - p(i)) / (t(i+1) - t(i));
 
             return (elozo + kovi) * 0.5f;
         }
+    }
+
+    const Vector& p(int i)
+    {
+        return cps[i];
     }
 
     int index_for_t(float tm)
@@ -218,25 +272,27 @@ struct RussianSpline
 
     Vector r(float _t)
     {
-        if(_t == 0) return cps[0];
+//        if(_t == 0) return cps[0];
         int i = index_for_t(_t);
         if(i == numCtrlPts - 1)
         {
             return cps[numCtrlPts - 1];
         }
-        Vector a[5];
-        a[0] = cps[i];
-        a[1] = v(i);
-        // FIXME Ez itt így egy CM!!!
-        a[2] = (((cps[i+i] - cps[i])*3) / pow(t(i+1) - t(i), 2)) -
-                ( (v(i+1) + v(i)*2) / (t(i+1) - t(i)) );
-        a[3] = (( (cps[i] - cps[i+1])*2 ) / pow(t(i+1) - t(i), 3)) +
-                ( (v(i+1) + v(i)) / pow((t(i+1) - t(i)),2) );
+        Vector _a[5];
+        _a[0] = p(i);
+        _a[1] = v(i);
+        _a[2] =  3*(p(i+1) - p(i)) / pow(t(i+1) - t(i), 2) -
+                (v(i+1) + 2*v(i))  /    (t(i+1) - t(i));
+        _a[3] =  2*(p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) +
+                (v(i+1) + v(i))    / pow(t(i+1) - t(i), 2);
+//        _a[2] = 0.5f * a(i);
+//        _a[3] = p(i+1) - v(i+1) + a(i) - 3*v(i) - p(i);
+//        _a[4] = v(i+1) - 3*p(i) + 0.5f*a(i) + 2*v(i);
 
         Vector r;
-        for(int j = 0; j<4; ++j)
+        for(int j = 0; j<5; ++j)
         {
-            r = r + a[j] * pow(_t - (i), j);
+            r = r + _a[j] * pow(_t - t(i), j);
         }
         return r;
 
@@ -263,13 +319,13 @@ struct RussianSpline
         glBegin(GL_TRIANGLE_FAN);
         for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
         {
-            float x = (cps[0] - a0).x + sin(angle);
-            float y = (cps[0] - a0).y + cos(angle);
+            float x = (cps[0] - all_a[0]).x + sin(angle);
+            float y = (cps[0] - all_a[0]).y + cos(angle);
             glVertex2f(x,y);
         }
         glEnd();
         glBegin(GL_LINE_STRIP);
-            glVertex2f((cps[0] - a0).x, (cps[0] - a0).y);
+            glVertex2f((cps[0] - all_a[0]).x, (cps[0] - all_a[0]).y);
             glVertex2f(cps[0].x, cps[0].y);
         glEnd();
 
@@ -277,7 +333,7 @@ struct RussianSpline
         for(int i = 0; i<numCtrlPts; ++i)
         {
             glBegin(GL_TRIANGLE_FAN);
-            for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
+            for(float angle = 0.0f; angle < 2*M_PI; angle += 0.1f)
             {
                 float x = cps[i].x + sin(angle);
                 float y = cps[i].y + cos(angle);
@@ -287,9 +343,10 @@ struct RussianSpline
         }
         if(numCtrlPts > 1)
         {
-            const float res = t(numCtrlPts - 1) - t(0) / 100.0f;
+            glColor3f(1.0, 1.0, 1.0);
+            const float res = (t(numCtrlPts - 1) - t(0)) / 1000.0f;
             glBegin(GL_LINE_STRIP);
-            for(float _time = t(0); _time <= t(numCtrlPts - 1); _time += 0.01)
+            for(float _time = t(0); _time <= t(numCtrlPts - 1) ; _time += res)
             {
                 Vector v = r(_time);
                 glVertex2f(v.x, v.y);
@@ -342,8 +399,14 @@ float phi;
 float sx, sy;
 
 double wl, wr, wb, wt;
+#define WL          100
+#define WR          200
+#define WB          300
+#define WT          400
 
 long eltol_start = 0;
+long anim_start  = 0;
+long anim_end = 0;
 
 float normCoordX(float x)
 {
@@ -381,7 +444,7 @@ void updateMouseState()
     else if(clickType == B3CLK && prog_state != VECTORS_SETUP && prog_state != ANIMATING)
     {
         prog_state = SETTING_UP_VECTORS;
-        spline.a0 = spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y);
+        spline.setA0(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y));
         accelSetup = true;
         if(startVectorSetup)
         {
@@ -397,15 +460,15 @@ void onInitialization( )
 {
     glViewport(0, 0, screenWidth, screenHeight);
 
-    pt = Vector(150,250,0);
+    pt = Vector(0,0,0);
     phi = 0.0f;
     sx = 1.0f;
     sy = 1.0f;
 
-    wl = 100;
-    wr = 200;
-    wb = 300;
-    wt = 400;
+    wl = WL;
+    wr = WR;
+    wb = WB;
+    wt = WT;
 
     glMatrixMode(GL_PROJECTION);
     gluOrtho2D(wl,wr,wb,wt);
@@ -441,6 +504,28 @@ void onDisplay( )
 
     }
 
+    if(prog_state == ANIMATING)
+    {
+        Vector r = spline.r((time - anim_start)/1000.0f);
+        std::cout << (time - anim_start)/1000.0f << std::endl;
+        wl = r.x - 10;
+        wr = r.x + 10;
+        wb = r.y - 10;
+        wt = r.y + 10;
+        if(r == spline.cps[spline.numCtrlPts - 1] && anim_end <= anim_start)
+        {
+            anim_end = time;
+        }
+        if(anim_end > anim_start && (time - anim_end <= 500))
+        {
+            wl = WL;
+            wr = WR;
+            wb = WB;
+            wt = WT;
+            prog_state = VECTORS_SETUP;
+        }
+    }
+
 
     // ...
     glMatrixMode(GL_PROJECTION);
@@ -471,14 +556,15 @@ void onKeyboard(unsigned char key, int x, int y)
     }
     else if (key == ' ')
     {
-        if(prog_state == VECTORS_SETUP || prog_state == ANIMATING)
+        if(prog_state == VECTORS_SETUP)
         {
-//            prog_state = ANIMATING;
-//            pv.x = 0;
-//            pv.y = 0;
-//            pt = Vector(0,0,0);
-//            pa = Vector(0,0);
+            prog_state = ANIMATING;
+            pv.x = 0;
+            pv.y = 0;
+            pt = Vector(0,0,0);
+            pa = Vector(0,0);
             // Animacio inditasa...
+            anim_start = glutGet(GLUT_ELAPSED_TIME);
         }
     }
     else if (key == 'p')
@@ -516,7 +602,7 @@ void onMouse(int button, int state, int x, int y)
 
         Vector curCPPos( normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0 - pt.x,
                             normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0 - pt.y,
-                            tmsec / 1000);
+                            tmsec / 1000.0f);
         if      ( clickType == NONE )       clickType = B1CLK;
         else if ( clickType == B1CLK )      clickType = B2CLK;
         else if ( clickType == B2CLK )      clickType = B3CLK;
