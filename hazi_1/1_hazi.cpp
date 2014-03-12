@@ -183,6 +183,10 @@ struct RussianSpline
     void setA0(const Vector& a)
     {
         all_a[0] = a;
+        for(int i = 0; i<100;++i)
+        {
+            known_a[i] = 0;
+        }
         known_a[0] = 1;
     }
 
@@ -375,7 +379,7 @@ typedef enum
     ANIMATING           // Korbenezegetes
 } PROGSTATE;
 
-PROGSTATE prog_state = ADDING_POINTS;
+//PROGSTATE prog_state = ADDING_POINTS;
 
 typedef enum
 {
@@ -435,31 +439,31 @@ void updateMouseState()
 
 
     long tmsec = glutGet(GLUT_ELAPSED_TIME);
-    if(tmsec - lastClickTime > 300 && clickType == B1CLK && prog_state == ADDING_POINTS)
+    if(tmsec - lastClickTime > 300 && clickType == B1CLK /*&& prog_state == ADDING_POINTS*/)
     {
         spline.addControlPoint(lastCPPos);
         clickType = NONE;
     }
-    else if(tmsec - lastClickTime > 300 && clickType == B2CLK && prog_state != VECTORS_SETUP && prog_state != ANIMATING)
+    else if(tmsec - lastClickTime > 300 && clickType == B2CLK /*&& prog_state != VECTORS_SETUP && prog_state != ANIMATING*/)
     {
-        prog_state = SETTING_UP_VECTORS;
+        //prog_state = SETTING_UP_VECTORS;
         spline.v0 = spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y);
-        startVectorSetup = true;
-        if(accelSetup)
-        {
-            prog_state = VECTORS_SETUP;
-        }
+//        startVectorSetup = true;
+//        if(accelSetup)
+//        {
+//            prog_state = VECTORS_SETUP;
+//        }
         clickType = NONE;
     }
-    else if(clickType == B3CLK && prog_state != VECTORS_SETUP && prog_state != ANIMATING)
+    else if(clickType == B3CLK /*&& prog_state != VECTORS_SETUP && prog_state != ANIMATING*/)
     {
-        prog_state = SETTING_UP_VECTORS;
+//        prog_state = SETTING_UP_VECTORS;
         spline.setA0(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y));
-        accelSetup = true;
-        if(startVectorSetup)
-        {
-            prog_state = VECTORS_SETUP;
-        }
+//        accelSetup = true;
+//        if(startVectorSetup)
+//        {
+//            prog_state = VECTORS_SETUP;
+//        }
         clickType = NONE;
     }
 }
@@ -510,7 +514,7 @@ void onDisplay( )
 
     }
 
-    if(prog_state == ANIMATING)
+    if(anim_start > anim_end && anim_start != 0)
     {
         Vector r = spline.r((time - anim_start)/1000.0f);
         glColor3f(1.0f,0.0f,0.0f);
@@ -529,7 +533,7 @@ void onDisplay( )
         if(r == spline.cps[spline.numCtrlPts - 1] && anim_end <= anim_start)
         {
             anim_end = time;
-            prog_state = VECTORS_SETUP;
+//            prog_state = VECTORS_SETUP;
         }
 //        if(anim_end > anim_start && (time - anim_end <= 500))
 //        {
@@ -571,28 +575,25 @@ void onKeyboard(unsigned char key, int x, int y)
     }
     else if (key == ' ')
     {
-        if(prog_state == VECTORS_SETUP)
-        {
-            prog_state = ANIMATING;
-//            pt = Vector(0,0,0);
-//            pa = Vector(0,0);
+//        if(prog_state == VECTORS_SETUP)
+//        {
+//            prog_state = ANIMATING;
+////            pt = Vector(0,0,0);
+////            pa = Vector(0,0);
             // Animacio inditasa...
             anim_start = glutGet(GLUT_ELAPSED_TIME);
-        }
+//        }
     }
     else if (key == 'p')
     {
-        if(prog_state == VECTORS_SETUP)
-        {
-            pv = (Vector(0,0) - Vector(600,600));
-            pv.x /= 3.0f;
-            pv.y /= 3.0f;
-            pv.x *= -1.0f;
-            pa.x = _mu * (pv.x < 0 ? -1 : 1);
-            pa.y = _mu * (pv.y < 0 ? -1 : 1);
-            eltol_start = glutGet(GLUT_ELAPSED_TIME);
+        pv = (Vector(0,0) - Vector(600,600));
+        pv.x /= 3.0f;
+        pv.y /= 3.0f;
+        pv.x *= -1.0f;
+        pa.x = _mu * (pv.x < 0 ? -1 : 1);
+        pa.y = _mu * (pv.y < 0 ? -1 : 1);
+        eltol_start = glutGet(GLUT_ELAPSED_TIME);
 //            std::cout << pv.x << "," << pv.y << std::endl;
-        }
     }
 
 }
