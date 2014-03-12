@@ -62,8 +62,6 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-#include <iostream>
-
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -201,6 +199,29 @@ struct RussianSpline
         return cps[i].z - cps[0].z;
     }
 
+    Vector _a2(int i)
+    {
+        return 0.5f * a(i);
+    }
+
+    Vector _a3(int i)
+    {
+         return (
+                 -4 * ( (p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) ) -
+                 ((v(i+1) + 3*v(i))     / pow(t(i+1) - t(i), 2))      -
+                 ( a(i)                 /    (t(i+1) - t(i))  )
+                 );
+    }
+
+    Vector _a4(int i)
+    {
+        return (
+                (3 * ( (p(i) - p(i+1) ) /       pow(t(i+1) - t(i), 4) )) +
+                (   ( v(i+1) + 2*v(i) ) /       pow(t(i+1) - t(i), 3) )  +
+                                ( a(i)  / ( 2 * pow(t(i+1) - t(i), 2)))
+                );
+    }
+
     Vector a(int i)
     {
         if(i == 0)
@@ -214,26 +235,13 @@ struct RussianSpline
         }
         else
         {
-//            _a[2] = 0.5f * a(i);
-//            _a[3] = p(i+1) - v(i+1) + a(i) - 3*v(i) - p(i);
-//            _a[4] = v(i+1) - 3*p(i) + 0.5f*a(i) + 2*v(i);
+            Vector a2 = _a2(i-1);
 
-            Vector _a2 = 0.5f * a(i-1);
+            Vector a3 = _a3(i-1);
+            Vector a4 = _a4(i-1);
 
-            Vector _a3 = 4*p(i) - v(i) - a(i-1) - 3*v(i-1) - 4*p(i-1);
-            Vector _a4 = v(i) - 3*p(i) + 0.5f*a(i-1) + 2*v(i-1) + 3*p(i-1);
+            Vector ret = 12*a4*pow(t(i) - t(i-1),2) + 6*a3*(t(i) - t(i-1)) + 2*a2;
 
-            Vector ret = 12*_a4*pow(t(i) - t(i-1),2) + 6*_a3*(t(i) - t(i-1)) + 2*_a2;
-//            if(all_a[0] != Vector(0,0,0))
-//            {
-//                std::cout << (i-1) << "a: " << (2*_a2).x << "," << (2*_a2).y << " ";
-//                std::cout << "p(i): " << p(i).x << "," << p(i).y << ", v(i): " << v(i).x << "," << v(i).y << " ";
-//                std::cout << ", v(i-1): " << v(i-1).x << "," << v(i-1).y << ", p(i-1): " << p(i-1).x << "," << p(i-1).y << " ";
-//                std::cout << "_a3: " << _a3.x << "," << _a3.y << " ";
-//                std::cout << "_a4: " << _a4.x << "," << _a4.y << " ";
-//                std::cout << "t(i) - t(i-1): " << t(i) - t(i-1) << " ";
-//                std::cout << "ret: " << ret.x << "," << ret.y << "\n\n\n" << std::endl;
-//            }
             all_a[i] = ret;
             known_a[i] = 1;
             return ret;
@@ -279,7 +287,6 @@ struct RussianSpline
 
     Vector r(float _t)
     {
-//        if(_t == 0) return cps[0];
         int i = index_for_t(_t);
         if(i == numCtrlPts - 1)
         {
@@ -288,13 +295,9 @@ struct RussianSpline
         Vector _a[5];
         _a[0] = p(i);
         _a[1] = v(i);
-//        _a[2] =  3*(p(i+1) - p(i)) / pow(t(i+1) - t(i), 2) -
-//                (v(i+1) + 2*v(i))  /    (t(i+1) - t(i));
-//        _a[3] =  2*(p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) +
-//                (v(i+1) + v(i))    / pow(t(i+1) - t(i), 2);
-        _a[2] = 0.5f * a(i);
-        _a[3] = 4*p(i+1) - v(i+1) - a(i) - 3*v(i) - 4*p(i);
-        _a[4] = v(i+1) - 3*p(i+1) + 0.5f*a(i) + 2*v(i) + 3*p(i);
+        _a[2] = _a2(i);
+        _a[3] = _a3(i);
+        _a[4] = _a4(i);
 
         Vector r;
         for(int j = 0; j<5; ++j)
@@ -497,11 +500,7 @@ void onDisplay( )
         Vector act_pv = pv + pa*dtime;
         if(act_pv.x * pv.x > 0 && act_pv.y * pv.y > 0)
         {
-//                std::cout << "Akutalis sebesseg: " << act_pv.x << "," << act_pv.y << std::endl;
-//                std::cout << "Alap sebesseg: " << pv.x << "," << pv.y << std::endl;
             pt = pt + act_pv*(dtime/1000.0);
-//                std::cout << "Aktualis eltolas: " << pt.x << "," << pt.y << std::endl;
-//                std::cout << std::endl;
 
         }
         else
@@ -514,23 +513,32 @@ void onDisplay( )
     if(prog_state == ANIMATING)
     {
         Vector r = spline.r((time - anim_start)/1000.0f);
-//        std::cout << (time - anim_start)/1000.0f << std::endl;
-        wl = r.x - 10;
-        wr = r.x + 10;
-        wb = r.y - 10;
-        wt = r.y + 10;
+        glColor3f(1.0f,0.0f,0.0f);
+        glBegin(GL_LINE_STRIP);
+        for(float angle = 0.0f; angle <= 2*M_PI; angle += 0.1f)
+        {
+            float x = r.x + sin(angle)*2;
+            float y = r.y + cos(angle)*2;
+            glVertex2f(x, y);
+        }
+        glEnd();
+//        wl = r.x - 10;
+//        wr = r.x + 10;
+//        wb = r.y - 10;
+//        wt = r.y + 10;
         if(r == spline.cps[spline.numCtrlPts - 1] && anim_end <= anim_start)
         {
             anim_end = time;
-        }
-        if(anim_end > anim_start && (time - anim_end <= 500))
-        {
-            wl = WL;
-            wr = WR;
-            wb = WB;
-            wt = WT;
             prog_state = VECTORS_SETUP;
         }
+//        if(anim_end > anim_start && (time - anim_end <= 500))
+//        {
+//            wl = WL;
+//            wr = WR;
+//            wb = WB;
+//            wt = WT;
+//            prog_state = VECTORS_SETUP;
+//        }
     }
 
 
@@ -566,10 +574,8 @@ void onKeyboard(unsigned char key, int x, int y)
         if(prog_state == VECTORS_SETUP)
         {
             prog_state = ANIMATING;
-            pv.x = 0;
-            pv.y = 0;
-            pt = Vector(0,0,0);
-            pa = Vector(0,0);
+//            pt = Vector(0,0,0);
+//            pa = Vector(0,0);
             // Animacio inditasa...
             anim_start = glutGet(GLUT_ELAPSED_TIME);
         }
@@ -581,9 +587,6 @@ void onKeyboard(unsigned char key, int x, int y)
             pv = (Vector(0,0) - Vector(600,600));
             pv.x /= 3.0f;
             pv.y /= 3.0f;
-//            std::cout << pv.x << "," << pv.y << std::endl;
-//            pv.x /= pv.Length();
-//            pv.y /= pv.Length();
             pv.x *= -1.0f;
             pa.x = _mu * (pv.x < 0 ? -1 : 1);
             pa.y = _mu * (pv.y < 0 ? -1 : 1);
@@ -615,7 +618,6 @@ void onMouse(int button, int state, int x, int y)
         else if ( clickType == B2CLK )      clickType = B3CLK;
 
 
-//        std::cout << "CLK: " << clickType << ", state: " << prog_state << std::endl;
 
         lastClickTime = tmsec;
         lastMousePos = Vector(x,y);
@@ -651,10 +653,7 @@ void onMouseMotion(int x, int y)
         pa.x = _mu * (pv.x < 0 ? -1 : 1);
         pa.y = _mu * (pv.y < 0 ? -1 : 1);
         eltol_start = t;
-//        lastMousePos = curMousePos;
-//        std::cout << "Kezdeti eltolas: " << pv.x << " --- " << pv.y << std::endl;
     }
-//    glutPostRedisplay();
 }
 
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
@@ -662,30 +661,7 @@ void onIdle( )
 {
     long time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
     updateMouseState();
-    if(prog_state == VECTORS_SETUP)
-    {
-//        std::cout << "SETUP!!!" << std::endl;
-    }
-//    if(eltol_start > 0 && pv != Vector(0,0,0))
-//    {
-//        long dtime = (time - eltol_start)/1000.0 + 1;
-////        std::cout << "dtime: " << dtime << ", _mu: " << _mu << std::endl;
-//        std::cout << "Eltolas elotte: " << pv.x << " " << pv.y << std::endl;
-//        pv.x *= _mu;
-//        pv.y *= _mu;
-//        if(pv.x < 1/1000.0)
-//        {
-//            pv.x = 0;
-//        }
-//        if(pv.y < 1/1000.0)
-//        {
-//            pv.y = 0;
-//        }
-////        if(! (pv == Vector(0,0,0)))
-////        {
-//            std::cout << "Eltolas utana: " << pv.x << " " << pv.y << std::endl;
-////        }
-//    }
+
     glutPostRedisplay();
 }
 
