@@ -62,6 +62,8 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
+//#include <iostream>
+
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -230,7 +232,6 @@ struct RussianSpline
     {
         if(i == 0)
         {
-//            std::cout << all_a[0].x << "," << all_a[0].y << std::endl;
             return all_a[0];
         }
         else if(known_a[i] == 1)
@@ -319,13 +320,13 @@ struct RussianSpline
         glBegin(GL_TRIANGLE_FAN);
         for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
         {
-            float x = (cps[0] - v0).x + sin(angle);
-            float y = (cps[0] - v0).y + cos(angle);
+            float x = (cps[0] + v0).x + sin(angle);
+            float y = (cps[0] + v0).y + cos(angle);
             glVertex2f(x,y);
         }
         glEnd();
         glBegin(GL_LINE_STRIP);
-            glVertex2f((cps[0] - v0).x, (cps[0] - v0).y);
+            glVertex2f((cps[0] + v0).x, (cps[0] + v0).y);
             glVertex2f(cps[0].x, cps[0].y);
         glEnd();
 
@@ -333,13 +334,13 @@ struct RussianSpline
         glBegin(GL_TRIANGLE_FAN);
         for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
         {
-            float x = (cps[0] - all_a[0]).x + sin(angle);
-            float y = (cps[0] - all_a[0]).y + cos(angle);
+            float x = (cps[0] + all_a[0]).x + sin(angle);
+            float y = (cps[0] + all_a[0]).y + cos(angle);
             glVertex2f(x,y);
         }
         glEnd();
         glBegin(GL_LINE_STRIP);
-            glVertex2f((cps[0] - all_a[0]).x, (cps[0] - all_a[0]).y);
+            glVertex2f((cps[0] + all_a[0]).x, (cps[0] + all_a[0]).y);
             glVertex2f(cps[0].x, cps[0].y);
         glEnd();
 
@@ -370,17 +371,6 @@ struct RussianSpline
     }
 };
 
-
-typedef enum
-{
-    ADDING_POINTS,      // Kontrollpontok hozzaadasa
-    SETTING_UP_VECTORS, // Kezdeti gyorsulas es sebesseg beallitasa
-    VECTORS_SETUP,      // Keszen van minden, lehet nyomni a space-t
-    ANIMATING           // Korbenezegetes
-} PROGSTATE;
-
-//PROGSTATE prog_state = ADDING_POINTS;
-
 typedef enum
 {
     NONE,
@@ -407,8 +397,9 @@ bool dont_add = false;
 
 Vector pv;
 Vector pt;
+Vector pt_0;
 Vector pa;
-float _mu = -1.28;
+float _mu = - ((200/3)*0.01f);
 float phi;
 float sx, sy;
 
@@ -417,6 +408,8 @@ double wl, wr, wb, wt;
 #define WR          200
 #define WB          300
 #define WT          400
+
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 long eltol_start = 0;
 long anim_start  = 0;
@@ -447,7 +440,7 @@ void updateMouseState()
     else if(tmsec - lastClickTime > 300 && clickType == B2CLK /*&& prog_state != VECTORS_SETUP && prog_state != ANIMATING*/)
     {
         //prog_state = SETTING_UP_VECTORS;
-        spline.v0 = spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y);
+        spline.v0 = -1.0f*(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y));
 //        startVectorSetup = true;
 //        if(accelSetup)
 //        {
@@ -458,7 +451,7 @@ void updateMouseState()
     else if(clickType == B3CLK /*&& prog_state != VECTORS_SETUP && prog_state != ANIMATING*/)
     {
 //        prog_state = SETTING_UP_VECTORS;
-        spline.setA0(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y));
+        spline.setA0(-1.0f*(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y)));
 //        accelSetup = true;
 //        if(startVectorSetup)
 //        {
@@ -498,53 +491,25 @@ void onDisplay( )
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
+//    std::cout << "Pv: " << pv.x << "," << pv.y << std::endl;
     if(pv != Vector(0,0,0))
     {
         float dtime = (time - eltol_start);
-        Vector act_pv = pv + pa*dtime;
-        if(act_pv.x * pv.x > 0 && act_pv.y * pv.y > 0)
-        {
-            pt = pt + act_pv*(dtime/1000.0);
-
-        }
-        else
+        float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y));
+//        std::cout << (pv*pv).x << "," << (pv*pv).y << std::endl;
+//        std::cout << (2*pa).x << "," << (2*pa).y << std::endl;
+//        std::cout << "max move: " << ((pv*pv)/(2*pa)).x << "," << ((pv*pv)/(2*pa)).y << std::endl;
+        if(dtime > maxt)
         {
             pv = Vector(0,0,0);
         }
+        else
+        {
+            pt = pt_0 + (dtime/1000.0)*pv + (0.5f*pa)*(dtime/1000.0)*(dtime/1000.0);
+//            std::cout << "Pt: " << pt.x << "," << pt.y << std::endl;
+        }
 
     }
-
-    if(anim_start > anim_end && anim_start != 0)
-    {
-        Vector r = spline.r((time - anim_start)/1000.0f);
-        glColor3f(1.0f,0.0f,0.0f);
-        glBegin(GL_LINE_STRIP);
-        for(float angle = 0.0f; angle <= 2*M_PI; angle += 0.1f)
-        {
-            float x = r.x + sin(angle)*2;
-            float y = r.y + cos(angle)*2;
-            glVertex2f(x, y);
-        }
-        glEnd();
-//        wl = r.x - 10;
-//        wr = r.x + 10;
-//        wb = r.y - 10;
-//        wt = r.y + 10;
-        if(r == spline.cps[spline.numCtrlPts - 1] && anim_end <= anim_start)
-        {
-            anim_end = time;
-//            prog_state = VECTORS_SETUP;
-        }
-//        if(anim_end > anim_start && (time - anim_end <= 500))
-//        {
-//            wl = WL;
-//            wr = WR;
-//            wb = WB;
-//            wt = WT;
-//            prog_state = VECTORS_SETUP;
-//        }
-    }
-
 
     // ...
     glMatrixMode(GL_PROJECTION);
@@ -559,6 +524,25 @@ void onDisplay( )
     glScalef(sx,sy,1.0f);
 
     spline.draw();
+
+    if(anim_start > anim_end && anim_start != 0)
+    {
+        Vector r = spline.r((time - anim_start)/1000.0f);
+        glColor3f(1.0f,0.0f,0.0f);
+        glBegin(GL_TRIANGLE_FAN);
+        for(float angle = 0.0f; angle <= 2*M_PI; angle += 0.1f)
+        {
+            float x = r.x + sin(angle)*2;
+            float y = r.y + cos(angle)*2;
+            glVertex2f(x, y);
+        }
+        glEnd();
+
+        if(r == spline.cps[spline.numCtrlPts - 1] && anim_end <= anim_start)
+        {
+            anim_end = time;
+        }
+    }
 
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
@@ -631,6 +615,13 @@ void onMouse(int button, int state, int x, int y)
     {
         if( ! (Vector(x,y) == lastMousePos))
         {
+            Vector curMousePos(x > screenWidth ? screenWidth : x,y > screenHeight ? screenHeight : y);
+            pv = ((curMousePos - lastMousePos)/(3.0));
+            pv.x *= -1.0f;
+            pa.x = _mu * (pv.x < 0 ? -1 : 1);
+            pa.y = _mu * (pv.y < 0 ? -1 : 1);
+            pt_0 = pt;
+            eltol_start = glutGet(GLUT_ELAPSED_TIME);
             clickType = NONE;
         }
         dont_add = false;
@@ -653,6 +644,7 @@ void onMouseMotion(int x, int y)
         pv.x *= -1.0f;
         pa.x = _mu * (pv.x < 0 ? -1 : 1);
         pa.y = _mu * (pv.y < 0 ? -1 : 1);
+        pt_0 = pt;
         eltol_start = t;
     }
 }
