@@ -62,8 +62,6 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-//#include <iostream>
-
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -359,7 +357,7 @@ struct RussianSpline
         if(numCtrlPts > 1)
         {
             glColor3f(1.0, 1.0, 1.0);
-            const float res = (t(numCtrlPts - 1) - t(0)) / 1000.0f;
+            const float res = (t(numCtrlPts - 1) - t(0)) / 2000.0f;
             glBegin(GL_LINE_STRIP);
             for(float _time = t(0); _time <= t(numCtrlPts - 1) ; _time += res)
             {
@@ -432,31 +430,19 @@ void updateMouseState()
 
 
     long tmsec = glutGet(GLUT_ELAPSED_TIME);
-    if(tmsec - lastClickTime > 300 && clickType == B1CLK /*&& prog_state == ADDING_POINTS*/)
+    if(tmsec - lastClickTime > 300 && clickType == B1CLK)
     {
         spline.addControlPoint(lastCPPos);
         clickType = NONE;
     }
-    else if(tmsec - lastClickTime > 300 && clickType == B2CLK /*&& prog_state != VECTORS_SETUP && prog_state != ANIMATING*/)
+    else if(tmsec - lastClickTime > 300 && clickType == B2CLK )
     {
-        //prog_state = SETTING_UP_VECTORS;
-        spline.v0 = -1.0f*(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y));
-//        startVectorSetup = true;
-//        if(accelSetup)
-//        {
-//            prog_state = VECTORS_SETUP;
-//        }
+        spline.v0 = (Vector(lastCPPos.x, lastCPPos.y) - spline.cps[0]);
         clickType = NONE;
     }
-    else if(clickType == B3CLK /*&& prog_state != VECTORS_SETUP && prog_state != ANIMATING*/)
+    else if(clickType == B3CLK )
     {
-//        prog_state = SETTING_UP_VECTORS;
-        spline.setA0(-1.0f*(spline.cps[0] - Vector(lastCPPos.x, lastCPPos.y)));
-//        accelSetup = true;
-//        if(startVectorSetup)
-//        {
-//            prog_state = VECTORS_SETUP;
-//        }
+        spline.setA0(Vector(lastCPPos.x, lastCPPos.y) - spline.cps[0]);
         clickType = NONE;
     }
 }
@@ -491,22 +477,18 @@ void onDisplay( )
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
-//    std::cout << "Pv: " << pv.x << "," << pv.y << std::endl;
     if(pv != Vector(0,0,0))
     {
         float dtime = (time - eltol_start);
         float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y));
-//        std::cout << (pv*pv).x << "," << (pv*pv).y << std::endl;
-//        std::cout << (2*pa).x << "," << (2*pa).y << std::endl;
-//        std::cout << "max move: " << ((pv*pv)/(2*pa)).x << "," << ((pv*pv)/(2*pa)).y << std::endl;
         if(dtime > maxt)
         {
+            pt = pt_0 + (maxt/1000.0)*pv + (0.5f*pa)*(maxt/1000.0)*(maxt/1000.0);
             pv = Vector(0,0,0);
         }
         else
         {
             pt = pt_0 + (dtime/1000.0)*pv + (0.5f*pa)*(dtime/1000.0)*(dtime/1000.0);
-//            std::cout << "Pt: " << pt.x << "," << pt.y << std::endl;
         }
 
     }
@@ -519,7 +501,7 @@ void onDisplay( )
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glTranslatef(pt.x,pt.y,pt.z); // Az utolso koordinata persze mindig 0 lesz...
+    glTranslatef(pt.x,pt.y,pt.z);
     glRotatef(phi,0.0f,0.0f,1.0f);
     glScalef(sx,sy,1.0f);
 
@@ -559,25 +541,7 @@ void onKeyboard(unsigned char key, int x, int y)
     }
     else if (key == ' ')
     {
-//        if(prog_state == VECTORS_SETUP)
-//        {
-//            prog_state = ANIMATING;
-////            pt = Vector(0,0,0);
-////            pa = Vector(0,0);
-            // Animacio inditasa...
-            anim_start = glutGet(GLUT_ELAPSED_TIME);
-//        }
-    }
-    else if (key == 'p')
-    {
-        pv = (Vector(0,0) - Vector(600,600));
-        pv.x /= 3.0f;
-        pv.y /= 3.0f;
-        pv.x *= -1.0f;
-        pa.x = _mu * (pv.x < 0 ? -1 : 1);
-        pa.y = _mu * (pv.y < 0 ? -1 : 1);
-        eltol_start = glutGet(GLUT_ELAPSED_TIME);
-//            std::cout << pv.x << "," << pv.y << std::endl;
+        anim_start = glutGet(GLUT_ELAPSED_TIME);
     }
 
 }
@@ -615,13 +579,6 @@ void onMouse(int button, int state, int x, int y)
     {
         if( ! (Vector(x,y) == lastMousePos))
         {
-            Vector curMousePos(x > screenWidth ? screenWidth : x,y > screenHeight ? screenHeight : y);
-            pv = ((curMousePos - lastMousePos)/(3.0));
-            pv.x *= -1.0f;
-            pa.x = _mu * (pv.x < 0 ? -1 : 1);
-            pa.y = _mu * (pv.y < 0 ? -1 : 1);
-            pt_0 = pt;
-            eltol_start = glutGet(GLUT_ELAPSED_TIME);
             clickType = NONE;
         }
         dont_add = false;
