@@ -342,7 +342,7 @@ struct RussianSpline
             glVertex2f(cps[0].x, cps[0].y);
         glEnd();
 
-        glColor3f(1.0, 1.0, 1.0);
+        glColor3f((50.0f/255.0f), (50.0f/255.0f), (50.0f/255.0f));
         for(int i = 0; i<numCtrlPts; ++i)
         {
             glBegin(GL_TRIANGLE_FAN);
@@ -356,7 +356,7 @@ struct RussianSpline
         }
         if(numCtrlPts > 1)
         {
-            glColor3f(1.0, 1.0, 1.0);
+            glColor3f((M_PI*M_E)/10.0f, 1.0f - M_E/20.0f, 0.0f);
             const float res = (t(numCtrlPts - 1) - t(0)) / 2000.0f;
             glBegin(GL_LINE_STRIP);
             for(float _time = t(0); _time <= t(numCtrlPts - 1) ; _time += res)
@@ -383,9 +383,6 @@ long lastClickTime = -1;
 Vector lastCPPos;
 Vector lastMousePos;
 
-bool startVectorSetup = false;
-bool accelSetup = false;
-
 const int screenWidth = 600;	// alkalmazas ablak felbontasa
 const int screenHeight = 600;
 
@@ -397,7 +394,7 @@ Vector pv;
 Vector pt;
 Vector pt_0;
 Vector pa;
-float _mu = - ((200/3)*0.01f);
+float _mu = - (100.0/9.0)*2;
 float phi;
 float sx, sy;
 
@@ -447,6 +444,15 @@ void updateMouseState()
     }
 }
 
+float screenCoordX(float x)
+{
+    return normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0 - pt.x;
+}
+
+float screenCoordY(float y)
+{
+    return normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0 - pt.y;
+}
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( )
@@ -469,26 +475,28 @@ void onInitialization( )
 }
 
 long prev_draw_time = 0;
+
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
+
 void onDisplay( )
 {
     long time = glutGet(GLUT_ELAPSED_TIME);
-    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
+    glClearColor(0.0f, 0.5f, 1.0f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
     if(pv != Vector(0,0,0))
     {
         float dtime = (time - eltol_start);
-        float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y));
+        float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y)) * 1000.0f;
         if(dtime > maxt)
         {
-            pt = pt_0 + (maxt/1000.0)*pv + (0.5f*pa)*(maxt/1000.0)*(maxt/1000.0);
+            pt = pt_0 + (maxt/1000.0)*pv + (0.5f*pa/1000.0)*(maxt/1000.0)*(maxt/1000.0);
             pv = Vector(0,0,0);
         }
         else
         {
-            pt = pt_0 + (dtime/1000.0)*pv + (0.5f*pa)*(dtime/1000.0)*(dtime/1000.0);
+            pt = pt_0 + (dtime/1000.0)*pv + (0.5f*pa/1000.0)*(dtime/1000.0)*(dtime/1000.0);
         }
 
     }
@@ -543,7 +551,6 @@ void onKeyboard(unsigned char key, int x, int y)
     {
         anim_start = glutGet(GLUT_ELAPSED_TIME);
     }
-
 }
 
 // Billentyuzet esemenyeket lekezelo fuggveny (felengedes)
@@ -559,9 +566,7 @@ void onMouse(int button, int state, int x, int y)
     {
         long tmsec = glutGet(GLUT_ELAPSED_TIME);
 
-        Vector curCPPos( normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0 - pt.x,
-                            normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0 - pt.y,
-                            tmsec / 1000.0f);
+        Vector curCPPos( screenCoordX(x), screenCoordY(y), tmsec / 1000.0f);
         if      ( clickType == NONE )       clickType = B1CLK;
         else if ( clickType == B1CLK )      clickType = B2CLK;
         else if ( clickType == B2CLK )      clickType = B3CLK;
@@ -569,7 +574,7 @@ void onMouse(int button, int state, int x, int y)
 
 
         lastClickTime = tmsec;
-        lastMousePos = Vector(x,y);
+        lastMousePos = Vector(screenCoordX(x),screenCoordY(y));
         lastCPPos = curCPPos;
         updateMouseState();
 
@@ -577,7 +582,7 @@ void onMouse(int button, int state, int x, int y)
     }
     else if(state == GLUT_UP)
     {
-        if( ! (Vector(x,y) == lastMousePos))
+        if( ! (Vector(screenCoordX(x),screenCoordY(y)) == lastMousePos))
         {
             clickType = NONE;
         }
@@ -596,9 +601,10 @@ void onMouseMotion(int x, int y)
     if(t - lastClickTime >= 500 && clickType != BMOV /*&& prog_state == VECTORS_SETUP*/)
     {
         clickType = BMOV;
-        Vector curMousePos(x > screenWidth ? screenWidth : x,y > screenHeight ? screenHeight : y);
-        pv = ((curMousePos - lastMousePos)/(3.0));
-        pv.x *= -1.0f;
+        Vector curMousePos(screenCoordX(x > screenWidth ? screenWidth : x),
+                           screenCoordY(y > screenHeight ? screenHeight : y));
+        pv = ((lastMousePos - curMousePos)/(3.0));
+//        pv.x *= -1.0f;
         pa.x = _mu * (pv.x < 0 ? -1 : 1);
         pa.y = _mu * (pv.y < 0 ? -1 : 1);
         pt_0 = pt;
@@ -609,7 +615,6 @@ void onMouseMotion(int x, int y)
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
 void onIdle( )
 {
-    long time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
     updateMouseState();
 
     glutPostRedisplay();
