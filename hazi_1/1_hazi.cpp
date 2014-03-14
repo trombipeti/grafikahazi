@@ -62,8 +62,6 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-#include <iostream>
-
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -169,8 +167,7 @@ struct RussianSpline
 {
     Vector cps[100];
     int numCtrlPts;
-    Vector all_v[0];
-    int known_v[100];
+    Vector v0;
     Vector all_a[100];
     int known_a[100];
 
@@ -191,17 +188,6 @@ struct RussianSpline
             known_a[i] = 0;
         }
         known_a[0] = 1;
-    }
-
-    void setV0(const Vector& v)
-    {
-        all_v[0] = v;
-        for(int i = 0;i<100;++i)
-        {
-            known_v[i] = 0;
-        }
-        known_v[0] = 1;
-        
     }
 
     void addControlPoint(const Vector& cp)
@@ -242,8 +228,11 @@ struct RussianSpline
 
     Vector a(int i)
     {
-        std::cout << "Getting a: " << i << std::endl;
-        if(known_a[i] == 1 || i == 0)
+        if(i == 0)
+        {
+            return all_a[0];
+        }
+        else if(known_a[i] == 1)
         {
             return all_a[i];
         }
@@ -264,20 +253,20 @@ struct RussianSpline
 
     Vector v(int i)
     {
-        std::cout << "Getting v: " << i << std::endl;
-	if(known_v[i] == 1 || i == 0)
+        if(i == 0)
         {
-            return all_v[i];
+            return v0;
+        }
+        else if(i == numCtrlPts - 1)
+        {
+            return Vector(0,0,0);
         }
         else
         {
             Vector elozo = (p(i) - p(i-1)) / (t(i) - t(i-1));
             Vector kovi  = (p(i+1) - p(i)) / (t(i+1) - t(i));
-           
-            Vector ret = (elozo + kovi) * 0.5f;
-            all_v[i] = ret;
-            known_v[i] = 1;
-            return ret;
+
+            return (elozo + kovi) * 0.5f;
         }
     }
 
@@ -325,46 +314,34 @@ struct RussianSpline
     void draw()
     {
         if(numCtrlPts == 0) return;
-        std::cout << "RussianSplie::draw()" << std::endl;
-        if(known_v[0] == 1)
+        glColor3f(0.0,1.0,0.0);
+        glBegin(GL_TRIANGLE_FAN);
+        for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
         {
-            std::cout << ">>>> Sebesseg" << std::endl;
-            glColor3f(0.0,1.0,0.0);
-            glBegin(GL_TRIANGLE_FAN);
-            for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
-            {
-                float x = (cps[0] + all_v[0]).x + sin(angle);
-                float y = (cps[0] + all_v[0]).y + cos(angle);
-                glVertex2f(x,y);
-            }
-            glEnd();
-            glBegin(GL_LINE_STRIP);
-                glVertex2f((cps[0] + all_v[0]).x, (cps[0] + all_v[0]).y);
-                glVertex2f(cps[0].x, cps[0].y);
-            glEnd();
-            std::cout << "Sebesseg <<<<" << std::endl;
+            float x = (cps[0] + v0).x + sin(angle);
+            float y = (cps[0] + v0).y + cos(angle);
+            glVertex2f(x,y);
         }
-       
-        if(known_a[0] == 1)
-        {
-            std::cout << ">>>> Gyorsulas" << std::endl;
-            glColor3f(0.0,0.0,1.0);
-            glBegin(GL_TRIANGLE_FAN);
-            for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
-            {
-                float x = (cps[0] + all_a[0]).x + sin(angle);
-                float y = (cps[0] + all_a[0]).y + cos(angle);
-                glVertex2f(x,y);
-            }
-            glEnd();
-            glBegin(GL_LINE_STRIP);
-                glVertex2f((cps[0] + all_a[0]).x, (cps[0] + all_a[0]).y);
-                glVertex2f(cps[0].x, cps[0].y);
-            glEnd();
-            std::cout << "Gyorsulas <<<<" << std::endl;
-        }
+        glEnd();
+        glBegin(GL_LINE_STRIP);
+            glVertex2f((cps[0] + v0).x, (cps[0] + v0).y);
+            glVertex2f(cps[0].x, cps[0].y);
+        glEnd();
 
-        std::cout << ">>>> CP rajz" << std::endl;
+        glColor3f(0.0,0.0,1.0);
+        glBegin(GL_TRIANGLE_FAN);
+        for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
+        {
+            float x = (cps[0] + all_a[0]).x + sin(angle);
+            float y = (cps[0] + all_a[0]).y + cos(angle);
+            glVertex2f(x,y);
+        }
+        glEnd();
+        glBegin(GL_LINE_STRIP);
+            glVertex2f((cps[0] + all_a[0]).x, (cps[0] + all_a[0]).y);
+            glVertex2f(cps[0].x, cps[0].y);
+        glEnd();
+
         glColor3f((50.0f/255.0f), (50.0f/255.0f), (50.0f/255.0f));
         for(int i = 0; i<numCtrlPts; ++i)
         {
@@ -377,10 +354,8 @@ struct RussianSpline
             }
             glEnd();
         }
-        std::cout << "CP rajz <<<<" << std::endl;
         if(numCtrlPts > 1)
         {
-            std::cout << "Görbe rajzolása" << std::endl;
             glColor3f((M_PI*M_E)/10.0f, 1.0f - M_E/20.0f, 0.0f);
             const float res = (t(numCtrlPts - 1) - t(0)) / 2000.0f;
             glBegin(GL_LINE_STRIP);
@@ -459,7 +434,7 @@ void updateMouseState()
     }
     else if(tmsec - lastClickTime > 300 && clickType == B2CLK )
     {
-        spline.setV0(Vector(lastCPPos.x, lastCPPos.y) - spline.cps[0]);
+        spline.v0 = (Vector(lastCPPos.x, lastCPPos.y) - spline.cps[0]);
         clickType = NONE;
     }
     else if(clickType == B3CLK )
@@ -506,7 +481,6 @@ long prev_draw_time = 0;
 void onDisplay( )
 {
     long time = glutGet(GLUT_ELAPSED_TIME);
-    std::cout << time << ", rajzolok" << std::endl;
     glClearColor(0.0f, 0.5f, 1.0f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
@@ -540,11 +514,9 @@ void onDisplay( )
     glScalef(sx,sy,1.0f);
 
     spline.draw();
-    
-    std::cout << "Kirajzolva" << std::endl;
+
     if(anim_start > anim_end && anim_start != 0)
     {
-        std::cout << "Animálok..." << std::endl;
         Vector r = spline.r((time - anim_start)/1000.0f);
         glColor3f(1.0f,0.0f,0.0f);
         glBegin(GL_TRIANGLE_FAN);
@@ -565,7 +537,7 @@ void onDisplay( )
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
     prev_draw_time = glutGet(GLUT_ELAPSED_TIME);
-    glutPostRedisplay();
+
 }
 
 // Billentyuzet esemenyeket lekezelo fuggveny (lenyomas)
@@ -590,11 +562,10 @@ void onKeyboardUp(unsigned char key, int x, int y)
 // Eger esemenyeket lekezelo fuggveny
 void onMouse(int button, int state, int x, int y)
 {
-    std::cout << ">>>> onMouse" << std::endl;
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)    // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
     {
         long tmsec = glutGet(GLUT_ELAPSED_TIME);
-	std::cout << tmsec << std::endl;
+
         Vector curCPPos( screenCoordX(x), screenCoordY(y), tmsec / 1000.0f);
         if      ( clickType == NONE )       clickType = B1CLK;
         else if ( clickType == B1CLK )      clickType = B2CLK;
@@ -613,12 +584,10 @@ void onMouse(int button, int state, int x, int y)
     {
         if( ! (Vector(screenCoordX(x),screenCoordY(y)) == lastMousePos))
         {
-            std::cout << glutGet(GLUT_ELAPSED_TIME) << std::endl;
             clickType = NONE;
         }
         dont_add = false;
     }
-    std::cout << "onMouse <<<<" << std::endl;
 }
 
 // Eger mozgast lekezelo fuggveny
@@ -646,11 +615,9 @@ void onMouseMotion(int x, int y)
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
 void onIdle( )
 {
-    std::cout << "onIdle <<<<" << std::endl;
     updateMouseState();
 
-    //glutPostRedisplay();
-   std::cout << ">>>> onIdle" << std::endl;
+    glutPostRedisplay();
 }
 
 // ...Idaig modosithatod
