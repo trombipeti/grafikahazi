@@ -378,6 +378,13 @@ typedef enum
     BMOV
 } BCLK;
 
+#define WL          100
+#define WR          200
+#define WB          300
+#define WT          400
+
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 BCLK clickType = NONE;
 long lastClickTime = -1;
 Vector lastCPPos;
@@ -394,17 +401,9 @@ Vector pv;
 Vector pt;
 Vector pt_0;
 Vector pa;
-float _mu = - (100.0/9.0)*2;
-float phi;
-float sx, sy;
+float _mu = -( pow( (100.0/3.0), 2) / 100.0);
 
 double wl, wr, wb, wt;
-#define WL          100
-#define WR          200
-#define WB          300
-#define WT          400
-
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 long eltol_start = 0;
 long anim_start  = 0;
@@ -424,7 +423,6 @@ float normCoordY(float y)
 void updateMouseState()
 {
     if(lastClickTime < 0 || dont_add) return;
-
 
     long tmsec = glutGet(GLUT_ELAPSED_TIME);
     if(tmsec - lastClickTime > 300 && clickType == B1CLK)
@@ -460,9 +458,6 @@ void onInitialization( )
     glViewport(0, 0, screenWidth, screenHeight);
 
     pt = Vector(0,0,0);
-    phi = 0.0f;
-    sx = 1.0f;
-    sy = 1.0f;
 
     wl = WL;
     wr = WR;
@@ -487,16 +482,16 @@ void onDisplay( )
     // ..
     if(pv != Vector(0,0,0))
     {
-        float dtime = (time - eltol_start);
-        float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y)) * 1000.0f;
+        float dtime = (time - eltol_start) / 1000.0f;
+        float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y));
         if(dtime > maxt)
         {
-            pt = pt_0 + (maxt/1000.0)*pv + (0.5f*pa/1000.0)*(maxt/1000.0)*(maxt/1000.0);
+            pt = pt_0 + (maxt)*pv + (0.5f*pa*maxt*maxt);
             pv = Vector(0,0,0);
         }
         else
         {
-            pt = pt_0 + (dtime/1000.0)*pv + (0.5f*pa/1000.0)*(dtime/1000.0)*(dtime/1000.0);
+            pt = pt_0 + (dtime)*pv + (0.5f*pa*dtime*dtime);
         }
 
     }
@@ -510,8 +505,6 @@ void onDisplay( )
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glTranslatef(pt.x,pt.y,pt.z);
-    glRotatef(phi,0.0f,0.0f,1.0f);
-    glScalef(sx,sy,1.0f);
 
     spline.draw();
 
@@ -604,9 +597,7 @@ void onMouseMotion(int x, int y)
         Vector curMousePos(screenCoordX(x > screenWidth ? screenWidth : x),
                            screenCoordY(y > screenHeight ? screenHeight : y));
         pv = ((lastMousePos - curMousePos)/(3.0));
-//        pv.x *= -1.0f;
-        pa.x = _mu * (pv.x < 0 ? -1 : 1);
-        pa.y = _mu * (pv.y < 0 ? -1 : 1);
+        pa = (pv/pv.Length()) * _mu * (sqrt(2.0f));
         pt_0 = pt;
         eltol_start = t;
     }
