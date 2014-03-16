@@ -420,6 +420,7 @@ void updateMouseState()
     long tmsec = glutGet(GLUT_ELAPSED_TIME);
     if(tmsec - lastClickTime > 300 && clickType == B1CLK)
     {
+        lastCPPos.z = tmsec/1000.0f;
         spline.addControlPoint(lastCPPos);
         clickType = NONE;
     }
