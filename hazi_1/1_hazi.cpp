@@ -69,24 +69,25 @@ struct Vector
 {
     float x, y, z;
 
-    Vector(float v = 0)
+    Vector( )
     {
-        x = y = z = v;
+        x = y = z = 0;
     }
-
     Vector(float x0, float y0, float z0 = 0)
     {
         x = x0;
         y = y0;
         z = z0;
     }
-
-    Vector operator/(float a)
+    Vector operator*(float a) const
+    {
+        return Vector(x * a, y * a, z * a);
+    }
+    Vector operator/(float a) const
     {
         return Vector(x / a, y / a, z / a);
     }
-
-    Vector operator+(const Vector& v) const
+    Vector operator+(const Vector& v)
     {
         return Vector(x + v.x, y + v.y, z + v.z);
     }
@@ -94,28 +95,18 @@ struct Vector
     {
         return Vector(x - v.x, y - v.y, z - v.z);
     }
-
-    Vector operator*(const Vector& v) const
+    float operator*(const Vector& v)   	// dot product
     {
-        return Vector(x * v.x, y * v.y, z * v.z);
+        return (x * v.x + y * v.y + z * v.z);
     }
-
-    Vector operator/(const Vector& v) const
+    Vector operator%(const Vector& v)   	// cross product
     {
-        return Vector(x / v.x, y / v.y, z / v.z);
+        return Vector(y*v.z-z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
     }
-
-    Vector operator%(const Vector& v) const     // cross product
-    {
-        return Vector(y * v.z - z * v.y,
-                      z * v.x - x * v.z,
-                      x * v.y - y * v.x);
-    }
-    float Length() const
+    float Length()
     {
         return sqrt(x * x + y * y + z * z);
     }
-
     bool operator==(const Vector& v) const
     {
         return (x == v.x && y == v.y && z == v.z);
@@ -129,7 +120,7 @@ struct Vector
 
 Vector operator*(float f, const Vector& v)
 {
-    return (Vector)v * Vector(f,f,f);
+    return v*f;
 }
 
 //--------------------------------------------------------
@@ -174,7 +165,7 @@ struct RussianSpline
     RussianSpline()
     {
         numCtrlPts = 0;
-        for(int i = 0; i<100;++i)
+        for(int i = 0; i<100; ++i)
         {
             known_a[i] = 0;
         }
@@ -183,7 +174,7 @@ struct RussianSpline
     void setA0(const Vector& a)
     {
         all_a[0] = a;
-        for(int i = 0; i<100;++i)
+        for(int i = 0; i<100; ++i)
         {
             known_a[i] = 0;
         }
@@ -210,20 +201,20 @@ struct RussianSpline
 
     Vector _a3(int i)
     {
-         return (
-                 -4 * ( (p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) ) -
-                 ((v(i+1) + 3*v(i))     / pow(t(i+1) - t(i), 2))      -
-                 ( a(i)                 /    (t(i+1) - t(i))  )
-                 );
+        return (
+                   -4 * ( (p(i) - p(i+1)) / pow(t(i+1) - t(i), 3) ) -
+                   ((v(i+1) + 3*v(i))     / pow(t(i+1) - t(i), 2))      -
+                   ( a(i)                 /    (t(i+1) - t(i))  )
+               );
     }
 
     Vector _a4(int i)
     {
         return (
-                (3 * ( (p(i) - p(i+1) ) /       pow(t(i+1) - t(i), 4) )) +
-                (   ( v(i+1) + 2*v(i) ) /       pow(t(i+1) - t(i), 3) )  +
-                                ( a(i)  / ( 2 * pow(t(i+1) - t(i), 2)))
-                );
+                   (3 * ( (p(i) - p(i+1) ) /       pow(t(i+1) - t(i), 4) )) +
+                   (   ( v(i+1) + 2*v(i) ) /       pow(t(i+1) - t(i), 3) )  +
+                   ( a(i)  / ( 2 * pow(t(i+1) - t(i), 2)))
+               );
     }
 
     Vector a(int i)
@@ -277,7 +268,7 @@ struct RussianSpline
 
     int index_for_t(float tm)
     {
-        for(int i = 0;i < numCtrlPts - 1; ++i)
+        for(int i = 0; i < numCtrlPts - 1; ++i)
         {
             if(t(i+1) > tm)
             {
@@ -324,8 +315,8 @@ struct RussianSpline
         }
         glEnd();
         glBegin(GL_LINE_STRIP);
-            glVertex2f((cps[0] + v0).x, (cps[0] + v0).y);
-            glVertex2f(cps[0].x, cps[0].y);
+        glVertex2f((cps[0] + v0).x, (cps[0] + v0).y);
+        glVertex2f(cps[0].x, cps[0].y);
         glEnd();
 
         glColor3f(0.0,0.0,1.0);
@@ -338,11 +329,11 @@ struct RussianSpline
         }
         glEnd();
         glBegin(GL_LINE_STRIP);
-            glVertex2f((cps[0] + all_a[0]).x, (cps[0] + all_a[0]).y);
-            glVertex2f(cps[0].x, cps[0].y);
+        glVertex2f((cps[0] + all_a[0]).x, (cps[0] + all_a[0]).y);
+        glVertex2f(cps[0].x, cps[0].y);
         glEnd();
 
-        glColor3f((50.0f/255.0f), (50.0f/255.0f), (50.0f/255.0f));
+        glColor3f(0.02f,1.0f,0.7f);
         for(int i = 0; i<numCtrlPts; ++i)
         {
             glBegin(GL_TRIANGLE_FAN);
@@ -444,11 +435,27 @@ void updateMouseState()
 
 float screenCoordX(float x)
 {
+    if(x < 0)
+    {
+        x = 0;
+    }
+    if(x > screenWidth)
+    {
+        x = screenWidth;
+    }
     return normCoordX(x) * ( (wr - wl) / 2.0 ) + (wr+wl)/2.0 - pt.x;
 }
 
 float screenCoordY(float y)
 {
+    if(y < 0)
+    {
+        y = 0;
+    }
+    if(y > screenHeight)
+    {
+        y = screenHeight;
+    }
     return normCoordY(y) * ( (wt - wb) / 2.0 ) + (wt+wb)/2.0 - pt.y;
 }
 
@@ -476,17 +483,17 @@ long prev_draw_time = 0;
 void onDisplay( )
 {
     long time = glutGet(GLUT_ELAPSED_TIME);
-    glClearColor(0.0f, 0.5f, 1.0f, 1.0f);		// torlesi szin beallitasa
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
     if(pv != Vector(0,0,0))
     {
         float dtime = (time - eltol_start) / 1000.0f;
-        float maxt = MAX(fabs(pv.x/pa.x), fabs(pv.y/pa.y));
+        float maxt = MAX(fabs(pv.x/_mu), fabs(pv.y/_mu));
         if(dtime > maxt)
         {
-            pt = pt_0 + (maxt)*pv + (0.5f*pa*maxt*maxt);
+            pt = pt_0 + maxt*pv + (0.5f*pa*maxt*maxt);
             pv = Vector(0,0,0);
         }
         else
@@ -518,6 +525,7 @@ void onDisplay( )
             float x = r.x + sin(angle)*2;
             float y = r.y + cos(angle)*2;
             glVertex2f(x, y);
+            glColor3f( (((time - anim_start)%1000)/1000.0) * (angle/(2*M_PI)),0.0f,0.0f);
         }
         glEnd();
 
@@ -591,13 +599,13 @@ void onMouseMotion(int x, int y)
     {
         dont_add = true;
     }
-    if(t - lastClickTime >= 500 && clickType != BMOV /*&& prog_state == VECTORS_SETUP*/)
+    if(t - lastClickTime >= 500 && clickType != BMOV)
     {
         clickType = BMOV;
-        Vector curMousePos(screenCoordX(x > screenWidth ? screenWidth : x),
-                           screenCoordY(y > screenHeight ? screenHeight : y));
+        Vector curMousePos(screenCoordX(x),
+                           screenCoordY(y));
         pv = ((lastMousePos - curMousePos)/(3.0));
-        pa = (pv/pv.Length()) * _mu * (sqrt(2.0f));
+        pa = _mu * (pv/pv.Length()) * sqrt(2);
         pt_0 = pt;
         eltol_start = t;
     }
