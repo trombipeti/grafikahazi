@@ -305,6 +305,7 @@ struct RussianSpline
     void draw()
     {
         if(numCtrlPts == 0) return;
+#ifdef _HOME_
         glColor3f(0.0,1.0,0.0);
         glBegin(GL_TRIANGLE_FAN);
         for(float angle = 0.0f; angle < 2*M_PI; angle += 0.2f)
@@ -332,6 +333,7 @@ struct RussianSpline
         glVertex2f((cps[0] + all_a[0]).x, (cps[0] + all_a[0]).y);
         glVertex2f(cps[0].x, cps[0].y);
         glEnd();
+#endif
 
         glColor3f(0.02f,1.0f,0.7f);
         for(int i = 0; i<numCtrlPts; ++i)
@@ -525,7 +527,7 @@ void onDisplay( )
             float x = r.x + sin(angle)*2;
             float y = r.y + cos(angle)*2;
             glVertex2f(x, y);
-            glColor3f( (((time - anim_start)%1000)/1000.0) * (angle/(2*M_PI)),0.0f,0.0f);
+            glColor3f(angle/(2*M_PI),0.0,0.0);
         }
         glEnd();
 
