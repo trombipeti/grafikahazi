@@ -376,8 +376,6 @@ typedef enum
 #define WB          300
 #define WT          400
 
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-
 BCLK clickType = NONE;
 long lastClickTime = -1;
 Vector lastCPPos;
@@ -394,7 +392,7 @@ Vector pv;
 Vector pt;
 Vector pt_0;
 Vector pa;
-float _mu = -( pow( (100.0/3.0), 2) / 100.0);
+float _mu = -( pow( ((100.0*sqrt(2))/3.0), 2) / (2*50*sqrt(2)));
 
 double wl, wr, wb, wt;
 
@@ -493,7 +491,7 @@ void onDisplay( )
     if(pv != Vector(0,0,0))
     {
         float dtime = (time - eltol_start) / 1000.0f;
-        float maxt = MAX(fabs(pv.x/_mu), fabs(pv.y/_mu));
+        float maxt = pv.Length()/pa.Length();
         if(dtime > maxt)
         {
             pt = pt_0 + maxt*pv + (0.5f*pa*maxt*maxt);
@@ -608,7 +606,8 @@ void onMouseMotion(int x, int y)
         Vector curMousePos(screenCoordX(x),
                            screenCoordY(y));
         pv = ((lastMousePos - curMousePos)/(3.0));
-        pa = _mu * (pv/pv.Length()) * sqrt(2);
+        pa = pv/pv.Length();
+        pa = pa*_mu;
         pt_0 = pt;
         eltol_start = t;
     }
