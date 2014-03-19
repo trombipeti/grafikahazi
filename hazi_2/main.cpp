@@ -103,6 +103,11 @@ struct Vector
     {
         return sqrt(x * x + y * y + z * z);
     }
+
+    Vector& norm()
+    {
+        return *this = *this * (1.0f/Length());
+    }
 };
 
 //--------------------------------------------------------
@@ -139,17 +144,136 @@ struct Color
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
 
+double epsilon = 0.001;
+int DMAX = 5;
+
+
+
+struct Ray
+{
+    Vector p0;
+    Vector dv;
+
+    Ray(Vector _p0, Vector _dv) : p0(_p0), dv(_dv) {}
+};
+
+struct LightSource
+{
+    Color color;
+    Vector p0;
+
+    LightSource(Color c, Vector _p0) : color(c), p0(_p0) {}
+};
+
+struct Camera
+{
+    Vector pos;
+    Vector fwd;
+
+    Camera(Vector p, Vector f) : pos(p), fwd(f) {}
+};
+
+struct Object
+{
+    virtual double intersect(const Ray& ray) = 0;
+    virtual ~Object();
+};
+
+struct Uljanov : public Object
+{
+    Vector p1, p2;
+    double c;
+
+    Uljanov(Vector _p1, Vector _p2, double _c)
+    {
+        p1 = _p1;
+        p2 = _p2;
+        c = _c;
+    }
+
+    double intersect(const Ray& ray)
+    {
+        double ret_t;
+
+        return ret_t;
+    }
+};
+
+struct Czermanik: public Object
+{
+    Vector e1_dv;
+    Vector e2_dv;
+    double c;
+
+    Czermanik(Vector e1, Vector e2, double _c)
+    {
+        e1_dv = e1;
+        e2_dv = e2;
+        c = _c;
+    }
+};
+
+struct Scene
+{
+    Object* objects[100];
+    int numObj;
+    Color ambLight;
+    Color pixels[screenWidth*screenHeight];
+
+    Scene(Color ambient = Color(1.0,1.0,1.0))
+    {
+        numObj = 0;
+        ambLight = ambient;
+    }
+
+    ~Scene()
+    {
+        for(int i = 0;i<numObj; ++i)
+        {
+            delete objects[i];
+        }
+    }
+
+    void addObject(Object* o)
+    {
+        objects[numObj++] = o;
+    }
+
+    Color trace(const Ray& r, int iter)
+    {
+        Color retColor;
+        if(iter < DMAX)
+        {
+            iter++;
+        }
+        else
+        {
+            retColor = ambLight;
+        }
+        return retColor;
+    }
+
+    void draw()
+    {
+        glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, pixels);
+    }
+};
+
+Scene scene;
+
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( )
 {
     glViewport(0, 0, screenWidth, screenHeight);
+
+//    scene.addObject()
 
 }
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( )
 {
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);		// torlesi szin beallitasa
+    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
     // ..
