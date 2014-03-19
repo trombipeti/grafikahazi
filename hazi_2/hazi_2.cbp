@@ -32,6 +32,9 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Linker>
+			<Add option="-lGL -lGLU -lglut -lm" />
+		</Linker>
 		<Unit filename="main.cpp" />
 		<Extensions>
 			<envvars />

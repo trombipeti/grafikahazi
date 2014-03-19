@@ -1,0 +1,17 @@
+Második feladat
+
+Készítsen sugárkövető programot, amely Ульянов-felületű testeket (azon pontok mértani helye, amelyek két ponttól vett távolságnégyzet összege egy adott állandó) és Czermanik-felületű testeket (azon pontok mértani helye, amelyek két egyenestől vett távolságnégyzet összege egy adott állandó) tartalmazó világot jelenít meg. A kamera egy nagyobb Ульянов-felületű testben van, ahol három távolsággal négyzetesen csökkenő intenzitású, különböző színű pont fényforrás, egy kisebb Ульянов-felületű test és még két Czermanik-felületű test található legalább részben, valamint a sík padló is látszik. Az egyik Czermanik-testben a referenciaegyenesek kitérők, a másikban metszők. A kamera nem lehet az origóban és optikai tengelye egyetlen koordinátatengellyel sem lehet párhuzamos. A nagy Ульянов optikailag sima arany, a kis Ульянов optikailag sima ezüst, a két Czermanik optikailag sima üveg, a padló diffúz zöld.
+
+...................r..........g..........b
+
+Üveg (n/k)......1.5/0.0, 1.5/0.0, 1.5/0.0
+
+Arany (n/k).....0.17/3.1, 0.35/2.7, 1.5/1.9
+
+Ezüst (n/k).....0.14/4.1, 0.16/2.3, 0.13/3.1
+
+Padló (kd)......0.1........0.4........0.05
+
+A nem megadott anyagtulajdonságok értelemszerűen zérus értékűek.
+
+Beadási határidő: 2014. 04. 06. 23:59
