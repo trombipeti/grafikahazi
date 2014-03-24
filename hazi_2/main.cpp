@@ -157,26 +157,58 @@ struct Ray
     Ray(Vector _p0, Vector _dv) : p0(_p0), dv(_dv) {}
 };
 
-struct LightSource
-{
-    Color color;
-    Vector p0;
-
-    LightSource(Color c, Vector _p0) : color(c), p0(_p0) {}
-};
-
-struct Camera
+struct Intersection
 {
     Vector pos;
-    Vector fwd;
-
-    Camera(Vector p, Vector f) : pos(p), fwd(f) {}
+    Vector norm;
+    bool valid;
+    Intersection(Vector p, Vector n, bool _valid = false) : pos(p), norm(n), valid(_valid) {}
 };
+
+struct LightSource
+{
+    enum Type {AMBIENT, DIRECTIONAL} type;
+
+    Color color;
+    Vector p0;
+    Vector dv;
+
+    LightSource()
+    {
+
+    }
+
+    LightSource(Type t, Color c, Vector _p0, Vector _dv)
+                : type(t), color(c), p0(_p0), dv(_dv)
+                {}
+};
+
+struct Anyag
+{
+    virtual Color getColor(Intersection inter, const LightSource* lights, int numLights) = 0;
+    virtual ~Anyag() {};
+};
+
+struct DiffuzAnyag : public Anyag
+{
+    Color color;
+    DiffuzAnyag(Color c)
+    {
+        color = c;
+    }
+
+    Color getColor(Intersection inter, const LightSource* lights, int numLights)
+    {
+        return color;
+    }
+} Zold(Color(0.1, 0.4, 0.05));
 
 struct Object
 {
-    virtual double intersect(const Ray& ray) = 0;
-    virtual ~Object();
+    Anyag *anyag;
+    Object(Anyag* a = NULL) : anyag(a) {}
+    virtual Intersection intersect(const Ray& ray) ;
+    virtual ~Object() {};
 };
 
 struct Uljanov : public Object
@@ -184,18 +216,17 @@ struct Uljanov : public Object
     Vector p1, p2;
     double c;
 
-    Uljanov(Vector _p1, Vector _p2, double _c)
+    Uljanov(Vector _p1, Vector _p2, double _c, Anyag* a)
     {
         p1 = _p1;
         p2 = _p2;
         c = _c;
+        anyag = a;
     }
 
-    double intersect(const Ray& ray)
+    Intersection intersect(const Ray& ray)
     {
-        double ret_t;
 
-        return ret_t;
     }
 };
 
@@ -205,30 +236,46 @@ struct Czermanik: public Object
     Vector e2_dv;
     double c;
 
-    Czermanik(Vector e1, Vector e2, double _c)
+    Czermanik(Vector e1, Vector e2, double _c, Anyag* a)
     {
         e1_dv = e1;
         e2_dv = e2;
         c = _c;
+        anyag = a;
     }
 };
+
+struct Floor: public Object
+{
+    Floor(Anyag *a = NULL)
+    {
+        anyag = a;
+    }
+
+    Intersection intersect(const Ray& r)
+    {
+
+    }
+} diffuseFloor(&Zold);
+
 
 struct Scene
 {
     Object* objects[100];
     int numObj;
-    Color ambLight;
+    LightSource lights[100];
+    int numLights;
     Color pixels[screenWidth*screenHeight];
 
-    Scene(Color ambient = Color(1.0,1.0,1.0))
+    Scene()
     {
         numObj = 0;
-        ambLight = ambient;
+        numLights = 0;
     }
 
     ~Scene()
     {
-        for(int i = 0;i<numObj; ++i)
+        for(int i = 0; i<numObj; ++i)
         {
             delete objects[i];
         }
@@ -237,6 +284,11 @@ struct Scene
     void addObject(Object* o)
     {
         objects[numObj++] = o;
+    }
+
+    void addLight(const LightSource& l)
+    {
+        lights[numLights++] = l;
     }
 
     Color trace(const Ray& r, int iter)
@@ -248,7 +300,7 @@ struct Scene
         }
         else
         {
-            retColor = ambLight;
+//            retColor = ambLight;
         }
         return retColor;
     }
@@ -257,28 +309,53 @@ struct Scene
     {
         glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, pixels);
     }
-};
+} scene;
 
-Scene scene;
+struct Camera
+{
+    Vector pos;
+    Vector fwd;
+    Vector up;
+
+    Camera(Vector p, Vector f, Vector u) : pos(p), fwd(f), up(u) {}
+
+    void takePicture()
+    {
+        for(int x=0; x<screenWidth; ++x)
+        {
+            for(int y = 0; y<screenHeight; ++y)
+            {
+                getPixel(x,y);
+            }
+        }
+    }
+
+    void getPixel(int x, int y)
+    {
+        Color pixelColor;
+        scene.pixels[x + y*screenWidth] = pixelColor;
+    }
+} camera(Vector(3,2,-1), Vector(1,-20,4), Vector(0,1,0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( )
 {
     glViewport(0, 0, screenWidth, screenHeight);
 
+    LightSource(LightSource::AMBIENT,Color(0.2f,0.2f,0.2f),Vector(3,3,-4),Vector(-1,-1,0.5).norm());
+
 //    scene.addObject()
+    camera.takePicture();
 
 }
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( )
 {
-    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);		// torlesi szin beallitasa
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
-    // ..
-
-    // ...
+    glDrawPixels(screenWidth,screenHeight,GL_RGB,GL_FLOAT,scene.pixels);
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -288,7 +365,6 @@ void onDisplay( )
 void onKeyboard(unsigned char key, int x, int y)
 {
     if (key == 'd') glutPostRedisplay( ); 		// d beture rajzold ujra a kepet
-
 }
 
 // Billentyuzet esemenyeket lekezelo fuggveny (felengedes)
