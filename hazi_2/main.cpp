@@ -79,23 +79,23 @@ struct Vector
         y = y0;
         z = z0;
     }
-    Vector operator*(float a)
+    Vector operator*(float a) const
     {
         return Vector(x * a, y * a, z * a);
     }
-    Vector operator+(const Vector& v)
+    Vector operator+(const Vector& v) const
     {
         return Vector(x + v.x, y + v.y, z + v.z);
     }
-    Vector operator-(const Vector& v)
+    Vector operator-(const Vector& v) const
     {
         return Vector(x - v.x, y - v.y, z - v.z);
     }
-    float operator*(const Vector& v)   	// dot product
+    float operator*(const Vector& v) const  	// dot product
     {
         return (x * v.x + y * v.y + z * v.z);
     }
-    Vector operator%(const Vector& v)   	// cross product
+    Vector operator%(const Vector& v) const  	// cross product
     {
         return Vector(y*v.z-z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
     }
@@ -109,6 +109,11 @@ struct Vector
         return *this = *this * (1.0f/Length());
     }
 };
+
+Vector operator*(float f, const Vector& v)
+{
+    return Vector(v.x * f, v.y * f, v.z * f);
+}
 
 //--------------------------------------------------------
 // Spektrum illetve szin
@@ -127,17 +132,22 @@ struct Color
         g = g0;
         b = b0;
     }
-    Color operator*(float a)
+    Color operator*(float a) const
     {
         return Color(r * a, g * a, b * a);
     }
-    Color operator*(const Color& c)
+    Color operator*(const Color& c) const
     {
         return Color(r * c.r, g * c.g, b * c.b);
     }
-    Color operator+(const Color& c)
+    Color operator+(const Color& c) const
     {
         return Color(r + c.r, g + c.g, b + c.b);
+    }
+
+    Color operator+=(const Color& c)
+    {
+        return *this = *this + c;
     }
 };
 
@@ -147,7 +157,15 @@ const int screenHeight = 600;
 double epsilon = 0.001;
 int DMAX = 5;
 
+float normCoordX(float x)
+{
+    return x*(2.0f/screenWidth) - 1.0f;
+}
 
+float normCoordY(float y)
+{
+    return (screenHeight - y)*(2.0f/screenHeight) - 1.0f;
+}
 
 struct Ray
 {
@@ -162,7 +180,9 @@ struct Intersection
     Vector pos;
     Vector norm;
     bool valid;
-    Intersection(Vector p, Vector n, bool _valid = false) : pos(p), norm(n), valid(_valid) {}
+    int objectIndex;
+    Intersection(Vector p = Vector(0,0,0), Vector n = Vector(0,0,0), bool _valid = false, int objInd = -1)
+        : pos(p), norm(n), valid(_valid), objectIndex(objInd) {}
 };
 
 struct LightSource
@@ -179,8 +199,8 @@ struct LightSource
     }
 
     LightSource(Type t, Color c, Vector _p0, Vector _dv)
-                : type(t), color(c), p0(_p0), dv(_dv)
-                {}
+        : type(t), color(c), p0(_p0), dv(_dv)
+    {}
 };
 
 struct Anyag
@@ -192,14 +212,27 @@ struct Anyag
 struct DiffuzAnyag : public Anyag
 {
     Color color;
-    DiffuzAnyag(Color c)
+    DiffuzAnyag(const Color& c)
     {
         color = c;
     }
 
     Color getColor(Intersection inter, const LightSource* lights, int numLights)
     {
-        return color;
+        Color retColor;
+
+        for(int i = 0; i<numLights; ++i)
+        {
+            switch(lights[i].type)
+            {
+            case LightSource::AMBIENT:
+                retColor += color * lights[i].color;
+                break;
+            default:
+                break;
+            }
+        }
+        return retColor;
     }
 } Zold(Color(0.1, 0.4, 0.05));
 
@@ -207,7 +240,7 @@ struct Object
 {
     Anyag *anyag;
     Object(Anyag* a = NULL) : anyag(a) {}
-    virtual Intersection intersect(const Ray& ray) ;
+    virtual Intersection intersect(const Ray& ray) = 0;
     virtual ~Object() {};
 };
 
@@ -227,6 +260,7 @@ struct Uljanov : public Object
     Intersection intersect(const Ray& ray)
     {
 
+        return Intersection();
     }
 };
 
@@ -247,12 +281,26 @@ struct Czermanik: public Object
 
 struct Floor: public Object
 {
-    Floor(Anyag *a = NULL)
+    Vector p0;
+    Vector nv;
+    Floor(Anyag *a = NULL, Vector p = Vector(0,0,0), Vector n = Vector(1,0,0))
     {
         anyag = a;
+        p0 = p;
+        nv = n.norm();
     }
 
     Intersection intersect(const Ray& r)
+    {
+        float r_t = (p0 - r.p0)*nv / (r.dv*nv);
+        if(! isnan(r_t) && r_t >= 0)
+        {
+            Vector metszes = r.p0 + r_t * r.dv;
+            return Intersection(metszes,nv,true);
+        }
+        return Intersection();
+    }
+    ~Floor()
     {
 
     }
@@ -275,10 +323,10 @@ struct Scene
 
     ~Scene()
     {
-        for(int i = 0; i<numObj; ++i)
-        {
-            delete objects[i];
-        }
+//        for(int i = 0; i<numObj; ++i)
+//        {
+//            delete objects[i];
+//        }
     }
 
     void addObject(Object* o)
@@ -291,16 +339,63 @@ struct Scene
         lights[numLights++] = l;
     }
 
+
+    Intersection findClosestIntersect(const Ray& r)
+    {
+        float closest_dist;
+        Intersection theClosest;
+
+        for(int i=0; i<numObj; ++i)
+        {
+            Intersection intr = objects[i]->intersect(r);
+            if(!intr.valid)
+            {
+                continue;
+            }
+            float dst = (intr.pos - r.p0).Length();
+            if(dst < closest_dist || theClosest.objectIndex == -1)
+            {
+                intr.objectIndex = i;
+                theClosest = intr;
+                closest_dist = dst;
+            }
+        }
+
+        return theClosest;
+
+    }
+
     Color trace(const Ray& r, int iter)
     {
         Color retColor;
         if(iter < DMAX)
         {
+            Intersection i = findClosestIntersect(r);
+            if(i.objectIndex != -1)
+            {
+                return objects[i.objectIndex]->anyag->getColor(i,lights,numLights);
+            }
+            else
+            {
+                for(int i = 0; i<numLights; ++i)
+                {
+                    if(lights[i].type == LightSource::AMBIENT)
+                    {
+                        retColor += lights[i].color;
+                    }
+                }
+            }
             iter++;
         }
         else
         {
-//            retColor = ambLight;
+            for(int i = 0; i<numLights; ++i)
+            {
+                if(lights[i].type == LightSource::AMBIENT)
+                {
+                    retColor += lights[i].color;
+                }
+            }
         }
         return retColor;
     }
@@ -332,19 +427,21 @@ struct Camera
 
     void getPixel(int x, int y)
     {
-        Color pixelColor;
-        scene.pixels[x + y*screenWidth] = pixelColor;
+        Vector norm = Vector(normCoordX(x), normCoordY(y), 0);
+        Ray r(pos, norm);
+        scene.pixels[x + y*screenWidth] = scene.trace(r,0);
     }
-} camera(Vector(3,2,-1), Vector(1,-20,4), Vector(0,1,0));
+} camera(Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( )
 {
     glViewport(0, 0, screenWidth, screenHeight);
 
-    LightSource(LightSource::AMBIENT,Color(0.2f,0.2f,0.2f),Vector(3,3,-4),Vector(-1,-1,0.5).norm());
+    LightSource ambient(LightSource::AMBIENT,Color(0.2f,0.2f,0.2f),Vector(3,3,-4),Vector(-1,-1,0.5).norm());
 
-//    scene.addObject()
+    scene.addObject(&diffuseFloor);
+    scene.addLight(ambient);
     camera.takePicture();
 
 }
@@ -389,7 +486,12 @@ void onMouseMotion(int x, int y)
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
 void onIdle( )
 {
-    long time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
+    static bool first = true;
+    if(first)
+    {
+        glutPostRedisplay();
+        first = false;
+    }
 
 }
 
