@@ -187,7 +187,7 @@ struct Intersection
 
 struct LightSource
 {
-    enum Type {AMBIENT, DIRECTIONAL} type;
+    enum Type {AMBIENS, DIRECTIONAL} type;
 
     Color color;
     Vector p0;
@@ -225,7 +225,7 @@ struct DiffuzAnyag : public Anyag
         {
             switch(lights[i].type)
             {
-            case LightSource::AMBIENT:
+            case LightSource::AMBIENS:
                 retColor += color * lights[i].color;
                 break;
             default:
@@ -283,7 +283,7 @@ struct Floor: public Object
 {
     Vector p0;
     Vector nv;
-    Floor(Anyag *a = NULL, Vector p = Vector(0,0,0), Vector n = Vector(1,0,0))
+    Floor(Anyag *a = NULL, Vector p = Vector(0,0,0), Vector n = Vector(0,1,0))
     {
         anyag = a;
         p0 = p;
@@ -296,6 +296,7 @@ struct Floor: public Object
         if(! isnan(r_t) && r_t >= 0)
         {
             Vector metszes = r.p0 + r_t * r.dv;
+            float l = (metszes - p0).Length();
             return Intersection(metszes,nv,true);
         }
         return Intersection();
@@ -304,7 +305,7 @@ struct Floor: public Object
     {
 
     }
-} diffuseFloor(&Zold);
+} diffuseFloor(&Zold,Vector(0,-2,0),Vector(0,1,0));
 
 
 struct Scene
@@ -408,11 +409,18 @@ struct Scene
 
 struct Camera
 {
-    Vector pos;
-    Vector fwd;
+    Vector eye;
+    Vector lookat;
     Vector up;
+    Vector right;
 
-    Camera(Vector p, Vector f, Vector u) : pos(p), fwd(f), up(u) {}
+    Camera(Vector theEye, Vector look, Vector u)
+    {
+        eye = theEye;
+        lookat = look;
+        up = u;
+        right = lookat%up;
+    }
 
     void takePicture()
     {
@@ -427,18 +435,18 @@ struct Camera
 
     void getPixel(int x, int y)
     {
-        Vector norm = Vector(normCoordX(x), normCoordY(y), 0);
-        Ray r(pos, norm);
+        Vector p = lookat + (float)((2*x)/(screenWidth-1))*right + (float)((2*y)/(screenHeight -1))*up;
+        Ray r(eye, p);
         scene.pixels[x + y*screenWidth] = scene.trace(r,0);
     }
-} camera(Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
+} camera(Vector(-3,-2,1),Vector(1,1,-1),Vector(0,1,0));//Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( )
 {
     glViewport(0, 0, screenWidth, screenHeight);
 
-    LightSource ambient(LightSource::AMBIENT,Color(0.2f,0.2f,0.2f),Vector(3,3,-4),Vector(-1,-1,0.5).norm());
+    LightSource ambient(LightSource::AMBIENT,Color(0.4f,0.4f,0.4f),Vector(3,3,-4),Vector(-1,-1,0.5).norm());
 
     scene.addObject(&diffuseFloor);
     scene.addLight(ambient);
@@ -462,6 +470,18 @@ void onDisplay( )
 void onKeyboard(unsigned char key, int x, int y)
 {
     if (key == 'd') glutPostRedisplay( ); 		// d beture rajzold ujra a kepet
+    else if (key == 'q')
+    {
+        diffuseFloor.p0.z += 1;
+        camera.takePicture();
+        glutPostRedisplay( );
+    }
+    else if (key == 'w')
+    {
+        diffuseFloor.p0.z -= 1;
+        camera.takePicture();
+        glutPostRedisplay( );
+    }
 }
 
 // Billentyuzet esemenyeket lekezelo fuggveny (felengedes)
