@@ -27,8 +27,8 @@
 //
 // NYILATKOZAT
 // ---------------------------------------------------------------------------------------------
-// Nev    : <VEZETEKNEV(EK)> <KERESZTNEV(EK)>
-// Neptun : <NEPTUN KOD>
+// Nev    : Trombitas Peter
+// Neptun : G08HLM
 // ---------------------------------------------------------------------------------------------
 // ezennel kijelentem, hogy a feladatot magam keszitettem, es ha barmilyen segitseget igenybe vettem vagy
 // mas szellemi termeket felhasznaltam, akkor a forrast es az atvett reszt kommentekben egyertelmuen jeloltem.
@@ -74,6 +74,24 @@ T MIN(T a, T b)
 	return (a < b ? a : b);
 }
 
+///// A Quake-ben használt fast inverse square root
+//float Q_rsqrt(float number)
+//{
+//	long i;
+//	float x2, y;
+//	const float threehalfs = 1.5F;
+//
+//	x2 = number * 0.5F;
+//	y = number;
+//	i = *(long *) &y;                   // evil floating point bit level hacking
+//	i = 0x5f3759df - (i >> 1);               // what the fuck?
+//	y = *(float *) &i;
+//	y = y * (threehalfs - (x2 * y * y));   // 1st iteration
+////      y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+//
+//	return y;
+//}
+
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -94,6 +112,10 @@ struct Vector
 	Vector operator*(float a) const
 	{
 		return Vector(x * a, y * a, z * a);
+	}
+	Vector operator/(float a) const
+	{
+		return Vector(x / a, y / a, z / a);
 	}
 	Vector operator+(const Vector& v) const
 	{
@@ -118,8 +140,8 @@ struct Vector
 
 	Vector norm() const
 	{
-		float l = Length();
-		return (*this * (1.0f / l));
+		float invl = 1 / Length();  	//Q_rsqrt(x * x + y * y + z * z);
+		return (*this * invl);
 	}
 };
 
@@ -194,7 +216,7 @@ struct Color
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
 
-double epsilon = 0.001;
+double epsilon = 0.0001;
 int DMAX = 5;
 
 float normCoordX(float x)
@@ -212,7 +234,7 @@ struct Ray
 	Vector p0;
 	Vector dv;
 
-	Ray(Vector _p0, Vector _dv) :
+	Ray(Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0 - 1)) :
 			p0(_p0), dv(_dv)
 	{
 	}
@@ -220,12 +242,13 @@ struct Ray
 
 struct Intersection
 {
+	Ray r;
 	Vector p0;
 	Vector nv;
 	bool valid;
 	int objectIndex;
-	Intersection(Vector p = Vector(0, 0, 0), Vector n = Vector(0, 0, 0),
-			bool _valid = false, int objInd = -1) :
+	Intersection(Ray _r = Ray(), Vector p = Vector(0, 0, 0),
+			Vector n = Vector(0, 0, 0), bool _valid = false, int objInd = -1) :
 			p0(p), nv(n), valid(_valid), objectIndex(objInd)
 	{
 	}
@@ -252,167 +275,22 @@ struct LightSource
 struct Anyag
 {
 	virtual Color getColor(Intersection inter, const LightSource* lights,
-			int numLights) = 0;
+			int numLights, int recursion_level = 0) = 0;
 	virtual ~Anyag()
 	{
 	}
 	;
 };
 
-static bool a = true;
-
-struct DiffuzAnyag: public Anyag
-{
-	Color color;
-	DiffuzAnyag(const Color& c)
-	{
-		color = c;
-	}
-
-	Color getColor(Intersection itrs, const LightSource* lights, int numLights)
-	{
-		Color retColor;
-
-		for (int i = 0; i < numLights; ++i)
-		{
-			switch (lights[i].type)
-			{
-			case LightSource::AMBIENS:
-				retColor += color * lights[i].color;
-				break;
-			case LightSource::PONT:
-			{
-				float intensity = 0;
-				intensity = MAX((itrs.nv.norm() * lights[i].dv.norm()), 0.0f);
-				retColor = retColor
-						+ ((lights[i].color
-								/ pow((lights[i].p0 - itrs.p0).Length(), 2))
-								* color) * intensity;
-				if (a)
-				{
-					Vector l = lights[i].dv.norm();
-					Vector it = itrs.nv.norm();
-					std::cout << "l: " << l.x << "," << l.y << "," << l.z
-							<< std::endl;
-					std::cout << "it: " << it.x << "," << it.y << "," << it.z
-							<< std::endl;
-					std::cout << intensity << std::endl;
-					std::cout << "retColor: " << retColor.r << "," << retColor.g
-							<< "," << retColor.b << std::endl;
-					std::cout << "color: " << color.r << "," << color.g << ","
-							<< color.b << std::endl;
-					std::cout << "lights[i].color: " << lights[i].color.r << ","
-							<< lights[i].color.g << "," << lights[i].color.b
-							<< std::endl;
-					a = false;
-				}
-			}
-				break;
-			default:
-				break;
-			}
-		}
-		return retColor.saturated();
-	}
-} Zold(Color(0.1, 0.4, 0.05));
-
-struct Uveg: public Anyag
-{
-	Color F0;
-
-	Uveg(Color n, Color k)
-	{
-		F0 = ((n - 1) * (n - 1) + k * k) / ((n + 1) * (n + 1) + k * k);
-	}
-
-	Color F(float costheta)
-	{
-		return F0 + (Color(1, 1, 1) - F0) * pow(1 - costheta, 5);
-	}
-
-	Color getColor(Intersection inter, const LightSource* lights, int numLights)
-	{
-
-	}
-};
-
 struct Object
 {
 	Anyag *anyag;
-	Object(Anyag* a = NULL) :
-			anyag(a)
-	{
-	}
 	virtual Intersection intersect(const Ray& ray) = 0;
 	virtual ~Object()
 	{
 	}
 	;
 };
-
-struct Uljanov: public Object
-{
-	Vector p1, p2;
-	double c;
-
-	Uljanov(Anyag* a, Vector _p1, Vector _p2, double _c)
-	{
-		p1 = _p1;
-		p2 = _p2;
-		c = _c;
-		anyag = a;
-	}
-
-	Intersection intersect(const Ray& ray)
-	{
-
-		return Intersection();
-	}
-};
-
-struct Czermanik: public Object
-{
-	Vector e1_dv;
-	Vector e2_dv;
-	double c;
-
-	Czermanik(Vector e1, Vector e2, double _c, Anyag* a)
-	{
-		e1_dv = e1;
-		e2_dv = e2;
-		c = _c;
-		anyag = a;
-	}
-};
-
-struct Floor: public Object
-{
-	Vector p0;
-	Vector nv;
-	Floor(Anyag *a = NULL, Vector p = Vector(0, 0, 0),
-			Vector n = Vector(0, 1, 0))
-	{
-		anyag = a;
-		p0 = p;
-		nv = n.norm();
-	}
-
-	Intersection intersect(const Ray& r)
-	{
-		float r_t = (p0 - r.p0) * nv / (r.dv * nv);
-		if (!isnan(r_t) && r_t >= 0)
-		{
-			Vector metszes = r.p0 + r_t * r.dv;
-			if ((metszes - p0).Length() > 0.3)
-				return Intersection(metszes, nv, true);
-		}
-		return Intersection();
-	}
-	~Floor()
-	{
-
-	}
-}*diffuseFloor = new Floor(&Zold, Vector(0, -2, 0), Vector(0.5, 1, -1));
 
 struct Scene
 {
@@ -430,10 +308,10 @@ struct Scene
 
 	~Scene()
 	{
-//        for(int i = 0; i<numObj; ++i)
-//        {
-//            delete objects[i];
-//        }
+		for (int i = 0; i < numObj; ++i)
+		{
+			delete objects[i];
+		}
 	}
 
 	void addObject(Object* o)
@@ -449,7 +327,7 @@ struct Scene
 	Intersection findClosestIntersect(const Ray& r)
 	{
 		float closest_dist = 0;
-		Intersection theClosest;
+		Intersection theClosest(r);
 
 		for (int i = 0; i < numObj; ++i)
 		{
@@ -480,7 +358,7 @@ struct Scene
 			if (i.objectIndex != -1)
 			{
 				return objects[i.objectIndex]->anyag->getColor(i, lights,
-						numLights);
+						numLights, iter);
 			}
 			else
 			{
@@ -504,7 +382,7 @@ struct Scene
 				}
 			}
 		}
-		return retColor;
+		return retColor.saturated();
 	}
 
 	void draw()
@@ -512,6 +390,194 @@ struct Scene
 		glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, pixels);
 	}
 } scene;
+
+struct DiffuzAnyag: public Anyag
+{
+	Color color;
+	DiffuzAnyag(const Color& c)
+	{
+		color = c;
+	}
+
+	Color getColor(Intersection itrs, const LightSource* lights, int numLights,
+			int recursion_level)
+	{
+		Color retColor;
+
+		for (int i = 0; i < numLights; ++i)
+		{
+			switch (lights[i].type)
+			{
+			case LightSource::AMBIENS:
+				retColor += color * lights[i].color;
+				break;
+			case LightSource::PONT:
+			{
+				float intensity = MAX((itrs.nv.norm() * lights[i].dv.norm()),
+						0.0f);
+				float l = (lights[i].p0 - itrs.p0).Length();
+				retColor = retColor
+						+ ((lights[i].color /*/ pow(l, 2)*/) * color)
+								* intensity;
+			}
+				break;
+			default:
+				break;
+			}
+		}
+		return retColor.saturated();
+	}
+} Zold(Color(0.1, 0.4, 0.05));
+
+struct ReflektivAnyag: public Anyag
+{
+	Color F0;
+
+	ReflektivAnyag(Color n, Color k)
+	{
+		F0 = ((n - 1) * (n - 1) + k * k) / ((n + 1) * (n + 1) + k * k);
+	}
+
+	Color F(float costheta)
+	{
+		return F0 + (Color(1, 1, 1) - F0) * pow(1 - costheta, 5);
+	}
+
+	Color getColor(Intersection inter, const LightSource* lights, int numLights,
+			int recursion_level)
+	{
+		Ray reflected_ray;
+		reflected_ray.dv = inter.r.dv
+				- 2.0f * (inter.nv * inter.r.dv) * inter.nv;
+		reflected_ray.p0 = (1.0f + epsilon) * inter.p0;
+		Color traced = (scene.trace(reflected_ray, recursion_level + 1));
+		return F((-1) * inter.r.dv * inter.nv) * traced;
+	}
+} Uveg(Color(1.5, 1.5, 1.5), Color(0, 0, 0)),
+
+Arany(Color(0.17, 0.35, 1.5), Color(3.1, 2.7, 1.9)),
+
+Ezust(Color(0.14, 0.16, 0.13), Color(4.1, 2.3, 3.1));
+
+struct Egyenes
+{
+	Vector p0;
+	Vector dv;
+
+	Egyenes(Vector p = Vector(0, 0, 0), Vector d = Vector(0, 0, -1))
+	{
+		p0 = p;
+		dv = d.norm();
+	}
+};
+
+struct Uljanov: public Object
+{
+	Vector p1, p2;
+	double c;
+
+	Uljanov(Anyag* a, Vector _p1, Vector _p2, double _c)
+	{
+		p1 = _p1;
+		p2 = _p2;
+		c = _c;
+		anyag = a;
+	}
+
+	Intersection intersect(const Ray& ray)
+	{
+		Vector origo = (p1 + p2) / 2;
+		double dx = ray.dv.x;
+		double dy = ray.dv.y;
+		double dz = ray.dv.z;
+		double x0 = ray.p0.x;
+		double y0 = ray.p0.y;
+		double z0 = ray.p0.z;
+		double cx = origo.x;
+		double cy = origo.y;
+		double cz = origo.z;
+		double R = c;
+		double a = dx * dx + dy * dy + dz * dz;
+		double b = 2 * dx * (x0 - cx) + 2 * dy * (y0 - cy) + 2 * dz * (z0 - cz);
+		double _c = cx * cx + cy * cy + cz * cz + x0 * x0 + y0 * y0 + z0 * z0
+				- 2 * (cx * x0 + cy * y0 + cz * z0) - R * R;
+		double d = b * b - 4 * a * _c;
+		if (d < 0)
+		{
+			return Intersection();
+		}
+		double t = ((-1.0 * b - sqrt(d)) / (2.0 * a));
+//		std::cout << "Intersect, t: " << t << std::endl;
+		if (t > epsilon)
+		// ha nem csak számolási hibát vétettünk...
+		{
+			return Intersection(ray, ray.p0 + t * ray.dv,
+					(ray.p0 + t * ray.dv - origo).norm(), true);
+		}
+		else
+		{
+			return Intersection();
+		}
+	}
+};
+
+Uljanov *nagyUljanov = new Uljanov(&Ezust, Vector(5, 5, -1), Vector(5, 5, -1),
+		2);
+Uljanov *kisUljanov = new Uljanov(&Uveg, Vector(2, 2, -1), Vector(4, 5, 0),
+		0.5);
+
+struct Czermanik: public Object
+{
+	Egyenes e1;
+	Egyenes e2;
+	double c;
+
+	Czermanik(Anyag* a, Egyenes _e1, Egyenes _e2, double _c)
+	{
+		e1 = _e1;
+		e2 = _e2;
+		c = _c;
+		anyag = a;
+	}
+
+	Intersection intersect(const Ray& ray)
+	{
+
+		return Intersection();
+	}
+};
+Czermanik *metszoCzermanik = new Czermanik(&Uveg,
+		Egyenes(Vector(1, 1, -2), Vector(0, 1, 0)),
+		Egyenes(Vector(1, 1, -2), Vector(0.5, 0.5, -1)), 4.0);
+
+struct Floor: public Object
+{
+	Vector p0;
+	Vector nv;
+	Floor(Anyag *a = NULL, Vector p = Vector(0, 0, 0),
+			Vector n = Vector(0, 1, 0))
+	{
+		anyag = a;
+		p0 = p;
+		nv = n.norm();
+	}
+
+	Intersection intersect(const Ray& r)
+	{
+		float r_t = (p0 - r.p0) * nv / (r.dv * nv);
+		if (!isnan(r_t) /*&& r_t >= 0*/)
+		{
+			Vector metszes = r.p0 + r_t * r.dv;
+			return Intersection(r, metszes, nv, true);
+		}
+		return Intersection();
+	}
+	~Floor()
+	{
+
+	}
+}*diffuseFloor = new Floor(&Zold, Vector(0, 0, -2), Vector(0, 0, -1)),
+		*aranyFloor = new Floor(&Arany, Vector(0, 0, -5), Vector(0, 1, -1));
 
 struct Camera
 {
@@ -530,6 +596,7 @@ struct Camera
 
 	void takePicture()
 	{
+//#pragma omp parallel for
 		for (int x = 0; x < screenWidth; ++x)
 		{
 			for (int y = 0; y < screenHeight; ++y)
@@ -541,24 +608,32 @@ struct Camera
 
 	void getPixel(int x, int y)
 	{
-		Vector p = lookat + (float) ((2 * x) / (screenWidth - 1)) * right
-				+ (float) ((2 * y) / (screenHeight - 1)) * up;
-		Ray r(eye, p);
-		scene.pixels[x + y * screenWidth] = scene.trace(r, 0);
+		Vector p = lookat + (float) ((2.0f * x) / (screenWidth - 1.0f)) * right
+				+ (float) ((2.0f * y) / (screenHeight - 1.0f)) * up;
+		Ray r(eye, p.norm());
+//		std::cout << "Shooting ray from: " << eye.x << "," << eye.y << "," << eye.z << std::endl;
+//		std::cout << "Pixel: " << x << "," << y << std::endl;
+//		std::cout << "r.dv: " << r.dv.x << "," << r.dv.y << "," << r.dv.z << std::endl;
+		Color c = scene.trace(r, 0);
+		scene.pixels[x + y * screenWidth] = c;
 	}
-} camera(Vector(-3, -2, 1), Vector(1, 1, -1), Vector(0, 1, 0));	//Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
+	// TODO Camera pozicio lookat stb mas helyre!!!
+} camera(Vector(0, 0, 5), Vector(0, 0, -1), Vector(0, 1, 0));//Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization()
 {
 	glViewport(0, 0, screenWidth, screenHeight);
 
-	LightSource ambient(LightSource::AMBIENS);
+	LightSource ambient(LightSource::AMBIENS, Color(0.2f, 0.2f, 0.2f));
 
-	LightSource lightP1(LightSource::PONT, Color(0.0f, 1.0f, 0.0f),
-			Vector(0, 3, 0), Vector(0.5, 1, -1));
+	LightSource lightP1(LightSource::PONT, Color(1.0f, 1.0f, 1.0f),
+			Vector(5, 5, 5), Vector(0, 0, -1));
 
 	scene.addObject(diffuseFloor);
+	scene.addObject(aranyFloor);
+	scene.addObject(kisUljanov);
+	scene.addObject(nagyUljanov);
 	scene.addLight(ambient);
 	scene.addLight(lightP1);
 	camera.takePicture();
@@ -580,34 +655,52 @@ void onDisplay()
 // Billentyuzet esemenyeket lekezelo fuggveny (lenyomas)
 void onKeyboard(unsigned char key, int x, int y)
 {
+	static bool up = true;
 	if (key == 'd')
 		glutPostRedisplay(); 		// d beture rajzold ujra a kepet
-	else if (key == 'q')
+	else if (key == 'u')
 	{
-		diffuseFloor->p0.z += 1;
-		camera.takePicture();
-		glutPostRedisplay();
-	}
-	else if (key == 'w')
-	{
-		diffuseFloor->p0.z -= 1;
-		camera.takePicture();
-		glutPostRedisplay();
-	}
-	else if (key == 'k')
-	{
-		a = true;
-		scene.lights[scene.numLights - 1].dv.x -= 0.5;
-		std::cout << "X: " << scene.lights[scene.numLights - 1].dv.x
-				<< std::endl;
+		scene.lights[0].color += Color(0.1, 0.1, 0.1);
 		camera.takePicture();
 		glutPostRedisplay();
 	}
 	else if (key == 'l')
 	{
-		a = true;
-		scene.lights[scene.numLights - 1].dv.x += 0.5;
-		std::cout << "X: " << scene.lights[1].dv.x << std::endl;
+		if (up)
+		{
+			scene.lights[scene.numLights - 1].color = Color(0, 0, 0);
+			up = false;
+		}
+		else
+		{
+			scene.lights[scene.numLights - 1].color = Color(1, 1, 1);
+			up = true;
+		}
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'f')
+	{
+		diffuseFloor->p0.z -= 0.5;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'g')
+	{
+		diffuseFloor->p0.z += 0.5;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'a')
+	{
+		scene.lights[scene.numLights - 1].p0.x -= 0.5;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 's')
+	{
+		scene.lights[scene.numLights - 1].p0.x += 0.5;
+		std::cout << scene.lights[scene.numLights - 1].p0.x << std::endl;
 		camera.takePicture();
 		glutPostRedisplay();
 	}
@@ -623,7 +716,7 @@ void onKeyboardUp(unsigned char key, int x, int y)
 void onMouse(int button, int state, int x, int y)
 {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		glutPostRedisplay(); 					// Ilyenkor rajzold ujra a kepet
+		glutPostRedisplay(); 				// Ilyenkor rajzold ujra a kepet
 }
 
 // Eger mozgast lekezelo fuggveny
@@ -662,7 +755,7 @@ int main(int argc, char **argv)
 	glMatrixMode(GL_PROJECTION);// A PROJECTION transzformaciot egysegmatrixra inicializaljuk
 	glLoadIdentity();
 
-	onInitialization();				// Az altalad irt inicializalast lefuttatjuk
+	onInitialization();			// Az altalad irt inicializalast lefuttatjuk
 
 	glutDisplayFunc(onDisplay);				// Esemenykezelok regisztralasa
 	glutMouseFunc(onMouse);
