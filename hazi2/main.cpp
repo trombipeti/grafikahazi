@@ -61,6 +61,7 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 #include <iostream>
+//#include <cstring>
 
 template<typename T>
 T MAX(T a, T b)
@@ -74,23 +75,26 @@ T MIN(T a, T b)
 	return (a < b ? a : b);
 }
 
-///// A Quake-ben használt fast inverse square root
-//float Q_rsqrt(float number)
-//{
-//	long i;
-//	float x2, y;
-//	const float threehalfs = 1.5F;
-//
-//	x2 = number * 0.5F;
-//	y = number;
-//	i = *(long *) &y;                   // evil floating point bit level hacking
-//	i = 0x5f3759df - (i >> 1);               // what the fuck?
-//	y = *(float *) &i;
-//	y = y * (threehalfs - (x2 * y * y));   // 1st iteration
-////      y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
-//
-//	return y;
-//}
+double epsilon = 0.00001;
+int DMAX = 5;
+
+/// A Quake-ben használt fast inverse square root
+float Q_rsqrt(float number)
+{
+	long i;
+	float x2, y;
+	const float threehalfs = 1.5F;
+
+	x2 = number * 0.5F;
+	y = number;
+	i = *(long *) &y;                   // evil floating point bit level hacking
+	i = 0x5f3759df - (i >> 1);               // what the fuck?
+	y = *(float *) &i;
+	y = y * (threehalfs - (x2 * y * y));   // 1st iteration
+//      y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+	return y;
+}
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -140,7 +144,7 @@ struct Vector
 
 	Vector norm() const
 	{
-		float invl = 1 / Length();  	//Q_rsqrt(x * x + y * y + z * z);
+		float invl = 1/Length();// Q_rsqrt(x * x + y * y + z * z);
 		return (*this * invl);
 	}
 };
@@ -206,6 +210,11 @@ struct Color
 		return *this = *this + c;
 	}
 
+	Color operator-=(const Color& c)
+	{
+		return *this = *this - c;
+	}
+
 	Color saturated() const
 	{
 		return Color(MAX(MIN(r, 1.0f), 0.0f), MAX(MIN(g, 1.0f), 0.0f),
@@ -216,8 +225,8 @@ struct Color
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
 
-double epsilon = 0.0001;
-int DMAX = 5;
+//Vector normals[100000][2];
+//int normal_nums = 0;
 
 float normCoordX(float x)
 {
@@ -393,10 +402,10 @@ struct Scene
 
 struct DiffuzAnyag: public Anyag
 {
-	Color color;
-	DiffuzAnyag(const Color& c)
+	Color kd;
+	DiffuzAnyag(const Color& k)
 	{
-		color = c;
+		kd = k;
 	}
 
 	Color getColor(Intersection itrs, const LightSource* lights, int numLights,
@@ -409,16 +418,26 @@ struct DiffuzAnyag: public Anyag
 			switch (lights[i].type)
 			{
 			case LightSource::AMBIENS:
-				retColor += color * lights[i].color;
+				retColor += kd * lights[i].color;
 				break;
 			case LightSource::PONT:
 			{
-				float intensity = MAX((itrs.nv.norm() * lights[i].dv.norm()),
-						0.0f);
-				float l = (lights[i].p0 - itrs.p0).Length();
-				retColor = retColor
-						+ ((lights[i].color /*/ pow(l, 2)*/) * color)
-								* intensity;
+				Vector d = (lights[i].p0 - itrs.p0).norm();
+				Ray shadowRay(itrs.p0 + (d * epsilon), d);
+				Intersection shadowHit = scene.findClosestIntersect(shadowRay);
+				if (!shadowHit.valid
+						|| (shadowRay.p0 - shadowHit.p0).Length()
+								> (shadowRay.p0 - lights[i].p0).Length())
+				{
+//					Vector V = (-1.0f) * itrs.r.dv.norm();
+					Vector Ll = shadowRay.dv.norm();
+//					Vector Hl = (V + Ll).norm();
+					float cost = Ll * itrs.nv.norm();
+					retColor = retColor
+							+ (lights[i].color
+									//* Q_rsqrt((lights[i].p0 - itrs.p0).Length())
+									* kd * MAX(cost, 0.0f));
+				}
 			}
 				break;
 			default:
@@ -427,7 +446,7 @@ struct DiffuzAnyag: public Anyag
 		}
 		return retColor.saturated();
 	}
-} Zold(Color(0.1, 0.4, 0.05));
+} Zold(Color(0.1, 0.4, 0.05)), Feher(Color(1, 0.7, 1));
 
 struct ReflektivAnyag: public Anyag
 {
@@ -448,14 +467,19 @@ struct ReflektivAnyag: public Anyag
 	{
 		Ray reflected_ray;
 		reflected_ray.dv = inter.r.dv
-				- 2.0f * (inter.nv * inter.r.dv) * inter.nv;
-		reflected_ray.p0 = (1.0f + epsilon) * inter.p0;
+				- inter.nv * (inter.nv * inter.r.dv) * 2.0f;
+		reflected_ray.p0 = inter.p0 * (1.000001);
 		Color traced = (scene.trace(reflected_ray, recursion_level + 1));
-		return F((-1) * inter.r.dv * inter.nv) * traced;
+		float r = traced.r;
+		if (r > 0.9)
+		{
+			int a = 2;
+			a += 2;
+		}
+		Color f = F((-1) * (inter.r.dv * inter.nv));
+		return (f * traced).saturated();
 	}
-} Uveg(Color(1.5, 1.5, 1.5), Color(0, 0, 0)),
-
-Arany(Color(0.17, 0.35, 1.5), Color(3.1, 2.7, 1.9)),
+} Arany(Color(0.17, 0.35, 1.5), Color(3.1, 2.7, 1.9)),
 
 Ezust(Color(0.14, 0.16, 0.13), Color(4.1, 2.3, 3.1));
 
@@ -484,23 +508,44 @@ struct Uljanov: public Object
 		anyag = a;
 	}
 
+	Vector normal(Vector v)
+	{
+		Vector n = 2.0f
+				* Vector((v.x - p1.x) + (v.x - p2.x),
+						(v.y - p1.y) + (v.y - p2.x),
+						(v.z - p1.z) + (v.z - p2.z));
+//		if (((int) (v.x * 1000)) % 10 == 0)
+//		{
+//			normals[normal_nums++][0] = v - Vector(0.5,0.5,0);
+//			normals[normal_nums][1] = v + n.norm() - Vector(0.5,0.5,0);
+//		}
+		return n.norm();
+	}
+
 	Intersection intersect(const Ray& ray)
 	{
-		Vector origo = (p1 + p2) / 2;
-		double dx = ray.dv.x;
-		double dy = ray.dv.y;
-		double dz = ray.dv.z;
-		double x0 = ray.p0.x;
-		double y0 = ray.p0.y;
-		double z0 = ray.p0.z;
-		double cx = origo.x;
-		double cy = origo.y;
-		double cz = origo.z;
-		double R = c;
-		double a = dx * dx + dy * dy + dz * dz;
-		double b = 2 * dx * (x0 - cx) + 2 * dy * (y0 - cy) + 2 * dz * (z0 - cz);
-		double _c = cx * cx + cy * cy + cz * cz + x0 * x0 + y0 * y0 + z0 * z0
-				- 2 * (cx * x0 + cy * y0 + cz * z0) - R * R;
+		double dvx = ray.dv.x;
+		double dvy = ray.dv.y;
+		double dvz = ray.dv.z;
+		double p0x = ray.p0.x;
+		double p0y = ray.p0.y;
+		double p0z = ray.p0.z;
+		double x0 = p1.x;
+		double y0 = p1.y;
+		double z0 = p1.z;
+		double x1 = p2.x;
+		double y1 = p2.y;
+		double z1 = p2.z;
+		// (x-x0)^2 + (y-y0)^2 + (z-z0)^2 + (x-x1)^2 + (y-y1)^2 + (z-z1)^2 - c = 0
+		double a = 2.0f * (dvx * dvx + dvy * dvy + dvz * dvz);
+		double b = 2 * dvx * (p0x - x0) + 2 * dvy * (p0y - y0)
+				+ 2 * dvz * (p0z - z0)
+				+ (2 * dvx * (p0x - x1) + 2 * dvy * (p0y - y1)
+						+ 2 * dvz * (p0z - z1));
+		double _c = x0 * x0 + y0 * y0 + z0 * z0 + p0x * p0x + p0y * p0y
+				+ p0z * p0z - 2 * (x0 * p0x + y0 * p0y + z0 * p0z) + x1 * x1
+				+ y1 * y1 + z1 * z1 + p0x * p0x + p0y * p0y + p0z * p0z
+				- 2 * (x1 * p0x + y1 * p0y + z1 * p0z) - c;
 		double d = b * b - 4 * a * _c;
 		if (d < 0)
 		{
@@ -508,11 +553,10 @@ struct Uljanov: public Object
 		}
 		double t = ((-1.0 * b - sqrt(d)) / (2.0 * a));
 //		std::cout << "Intersect, t: " << t << std::endl;
-		if (t > epsilon)
-		// ha nem csak számolási hibát vétettünk...
+		if (t >= epsilon)
 		{
-			return Intersection(ray, ray.p0 + t * ray.dv,
-					(ray.p0 + t * ray.dv - origo).norm(), true);
+			return Intersection(ray, ray.p0 + (t < epsilon ? 0 : t) * ray.dv,
+					normal(ray.p0 + ray.dv * t), true);
 		}
 		else
 		{
@@ -521,10 +565,10 @@ struct Uljanov: public Object
 	}
 };
 
-Uljanov *nagyUljanov = new Uljanov(&Ezust, Vector(5, 5, -1), Vector(5, 5, -1),
-		2);
-Uljanov *kisUljanov = new Uljanov(&Uveg, Vector(2, 2, -1), Vector(4, 5, 0),
-		0.5);
+Uljanov *nagyUljanov = new Uljanov(&Feher, Vector(0, 0, 9), Vector(1, 3, 13),
+		455);
+Uljanov *kisUljanov = new Uljanov(&Ezust, Vector(0, 1, -35), Vector(0, 1, -35),
+		1);
 
 struct Czermanik: public Object
 {
@@ -546,9 +590,9 @@ struct Czermanik: public Object
 		return Intersection();
 	}
 };
-Czermanik *metszoCzermanik = new Czermanik(&Uveg,
-		Egyenes(Vector(1, 1, -2), Vector(0, 1, 0)),
-		Egyenes(Vector(1, 1, -2), Vector(0.5, 0.5, -1)), 4.0);
+//Czermanik *metszoCzermanik = new Czermanik(&Uveg,
+//		Egyenes(Vector(1, 1, -2), Vector(0, 1, 0)),
+//		Egyenes(Vector(1, 1, -2), Vector(0.5, 0.5, -1)), 4.0);
 
 struct Floor: public Object
 {
@@ -565,9 +609,10 @@ struct Floor: public Object
 	Intersection intersect(const Ray& r)
 	{
 		float r_t = (p0 - r.p0) * nv / (r.dv * nv);
-		if (!isnan(r_t) /*&& r_t >= 0*/)
+		if (!isnan(r_t) && r_t >= 0)
 		{
 			Vector metszes = r.p0 + r_t * r.dv;
+//			if ((metszes - p0).Length() < 10)
 			return Intersection(r, metszes, nv, true);
 		}
 		return Intersection();
@@ -576,8 +621,7 @@ struct Floor: public Object
 	{
 
 	}
-}*diffuseFloor = new Floor(&Zold, Vector(0, 0, -2), Vector(0, 0, -1)),
-		*aranyFloor = new Floor(&Arany, Vector(0, 0, -5), Vector(0, 1, -1));
+}*diffuseFloor = new Floor(&Zold, Vector(0, -1, 0), Vector(0, 1, 0));
 
 struct Camera
 {
@@ -590,13 +634,15 @@ struct Camera
 	{
 		eye = theEye;
 		lookat = look;
-		up = u;
-		right = lookat % up;
+		up = u.norm();
+		right = ((lookat - eye) % up).norm();
 	}
 
 	void takePicture()
 	{
-//#pragma omp parallel for
+//		memset(&normals,0,sizeof(normals));
+//		normal_nums = 0;
+#pragma omp parallel for
 		for (int x = 0; x < screenWidth; ++x)
 		{
 			for (int y = 0; y < screenHeight; ++y)
@@ -610,15 +656,16 @@ struct Camera
 	{
 		Vector p = lookat + (float) ((2.0f * x) / (screenWidth - 1.0f)) * right
 				+ (float) ((2.0f * y) / (screenHeight - 1.0f)) * up;
-		Ray r(eye, p.norm());
+		Ray r(eye, (p - eye).norm());
 //		std::cout << "Shooting ray from: " << eye.x << "," << eye.y << "," << eye.z << std::endl;
 //		std::cout << "Pixel: " << x << "," << y << std::endl;
-//		std::cout << "r.dv: " << r.dv.x << "," << r.dv.y << "," << r.dv.z << std::endl;
+//		std::cout << "r.dv: " << r.dv.x << "," << r.dv.y << "," << r.dv.z
+//				<< std::endl;
 		Color c = scene.trace(r, 0);
 		scene.pixels[x + y * screenWidth] = c;
 	}
 	// TODO Camera pozicio lookat stb mas helyre!!!
-} camera(Vector(0, 0, 5), Vector(0, 0, -1), Vector(0, 1, 0));//Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
+} camera(Vector(1.4, 1, 10), Vector(-0.5, 0, -1), Vector(0, 1, 0));	//Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization()
@@ -627,15 +674,22 @@ void onInitialization()
 
 	LightSource ambient(LightSource::AMBIENS, Color(0.2f, 0.2f, 0.2f));
 
-	LightSource lightP1(LightSource::PONT, Color(1.0f, 1.0f, 1.0f),
-			Vector(5, 5, 5), Vector(0, 0, -1));
+	LightSource lightP1(LightSource::PONT, Color(50.0f, 50.0f, 50.0f),
+			Vector(1.4, 1, -10), Vector(0, -1, -0.2));
+
+	LightSource lightP2(LightSource::PONT, Color(50.0f, 50.0f, 50.0f),
+			Vector(5, 5, 11), Vector(0, 0, -1));
+
+	LightSource lightP3(LightSource::PONT, Color(20.0f, 20.0f, 0.0f),
+			Vector(5, 5, 11), Vector(0, 0, -1));
 
 	scene.addObject(diffuseFloor);
-	scene.addObject(aranyFloor);
 	scene.addObject(kisUljanov);
-	scene.addObject(nagyUljanov);
+//	scene.addObject(nagyUljanov);
 	scene.addLight(ambient);
 	scene.addLight(lightP1);
+//	scene.addLight(lightP2);
+//	scene.addLight(lightP3);
 	camera.takePicture();
 
 }
@@ -647,6 +701,15 @@ void onDisplay()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
 	glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, scene.pixels);
+
+//	glBegin(GL_LINES);
+//	glColor3f(0, 0, 0);
+//	for (int i = 0; i < normal_nums; ++i)
+//	{
+//		glVertex3fv((float*) &normals[i][0]);
+//		glVertex3fv((float*) &normals[i][1]);
+//	}
+//	glEnd();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -661,6 +724,12 @@ void onKeyboard(unsigned char key, int x, int y)
 	else if (key == 'u')
 	{
 		scene.lights[0].color += Color(0.1, 0.1, 0.1);
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'z')
+	{
+		scene.lights[0].color -= Color(0.1, 0.1, 0.1);
 		camera.takePicture();
 		glutPostRedisplay();
 	}
@@ -693,14 +762,104 @@ void onKeyboard(unsigned char key, int x, int y)
 	}
 	else if (key == 'a')
 	{
-		scene.lights[scene.numLights - 1].p0.x -= 0.5;
+		scene.lights[scene.numLights - 1].p0.x -= 0.1;
 		camera.takePicture();
 		glutPostRedisplay();
 	}
 	else if (key == 's')
 	{
-		scene.lights[scene.numLights - 1].p0.x += 0.5;
-		std::cout << scene.lights[scene.numLights - 1].p0.x << std::endl;
+		scene.lights[scene.numLights - 1].p0.x += 0.1;
+//		std::cout << scene.lights[scene.numLights - 1].p0.x << std::endl;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'c')
+	{
+		camera.eye.z -= 1;
+		camera.right = camera.lookat % camera.up;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'x')
+	{
+		camera.eye.z += 1;
+		camera.right = camera.lookat % camera.up;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == '1')
+	{
+		scene.lights[1].color =
+				scene.lights[0].color.r > 0 ?
+						Color(0, 0, 0) : Color(50, 50, 50);
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == '2')
+	{
+		scene.lights[2].color =
+				scene.lights[1].color.r > 0 ?
+						Color(0, 0, 0) : Color(50, 50, 50);
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == '3')
+	{
+		scene.lights[3].color =
+				scene.lights[2].color.r > 0 ?
+						Color(0, 0, 0) : Color(20, 20, 20);
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'n')
+	{
+		kisUljanov->p1.x -= 0.1;
+		kisUljanov->p2.x += 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'm')
+	{
+		kisUljanov->p1.x += 0.1;
+		kisUljanov->p2.x -= 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == ',')
+	{
+		kisUljanov->p1.y -= 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == '.')
+	{
+		kisUljanov->p1.y += 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == '-')
+	{
+		kisUljanov->p1.z -= 0.1;
+		kisUljanov->p2.z += 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == '+')
+	{
+		kisUljanov->p1.z += 0.1;
+		kisUljanov->p2.z -= 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'r')
+	{
+		kisUljanov->c += 0.1;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'e')
+	{
+		kisUljanov->c -= 0.1;
 		camera.takePicture();
 		glutPostRedisplay();
 	}
@@ -734,6 +893,14 @@ void onIdle()
 		glutPostRedisplay();
 		first = false;
 	}
+	long time = glutGet(GLUT_ELAPSED_TIME);
+//	if ((time % 1000) / 100 >= 5)
+//	{
+//		kisUljanov->p1.x = ((time % 100) / 50.0f);
+//		std::cout << kisUljanov->p1.x << std::endl;
+//		camera.takePicture();
+//		glutPostRedisplay();
+//	}
 
 }
 
