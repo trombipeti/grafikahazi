@@ -60,8 +60,6 @@
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
-#include <iostream>
-//#include <cstring>
 
 template<typename T>
 T MAX(T a, T b)
@@ -75,26 +73,8 @@ T MIN(T a, T b)
 	return (a < b ? a : b);
 }
 
-double epsilon = 0.00001;
-int DMAX = 5;
-
-/// A Quake-ben használt fast inverse square root
-float Q_rsqrt(float number)
-{
-	long i;
-	float x2, y;
-	const float threehalfs = 1.5F;
-
-	x2 = number * 0.5F;
-	y = number;
-	i = *(long *) &y;                   // evil floating point bit level hacking
-	i = 0x5f3759df - (i >> 1);               // what the fuck?
-	y = *(float *) &i;
-	y = y * (threehalfs - (x2 * y * y));   // 1st iteration
-//      y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
-
-	return y;
-}
+double epsilon = 0.001;
+int DMAX = 6;
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -144,7 +124,7 @@ struct Vector
 
 	Vector norm() const
 	{
-		float invl = 1/Length();// Q_rsqrt(x * x + y * y + z * z);
+		float invl = 1 / Length();  	// Q_rsqrt(x * x + y * y + z * z);
 		return (*this * invl);
 	}
 };
@@ -220,6 +200,21 @@ struct Color
 		return Color(MAX(MIN(r, 1.0f), 0.0f), MAX(MIN(g, 1.0f), 0.0f),
 				MAX(MIN(b, 1.0f), 0.0f));
 	}
+
+	bool operator==(const Color& c) const
+	{
+		return (r == c.r && g == c.g && b == c.b);
+	}
+
+	bool operator<(const Color& c)
+	{
+		return (r < c.r && g < c.g && b < c.b);
+	}
+
+	bool operator>(const Color& c)
+	{
+		return (r > c.r && g > c.g && b > c.b);
+	}
 };
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
@@ -244,8 +239,14 @@ struct Ray
 	Vector dv;
 
 	Ray(Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0 - 1)) :
-			p0(_p0), dv(_dv)
+			p0(_p0), dv(_dv.norm())
 	{
+	}
+
+	Ray(const Ray& r)
+	{
+		p0 = r.p0;
+		dv = r.dv;
 	}
 };
 
@@ -257,9 +258,13 @@ struct Intersection
 	bool valid;
 	int objectIndex;
 	Intersection(Ray _r = Ray(), Vector p = Vector(0, 0, 0),
-			Vector n = Vector(0, 0, 0), bool _valid = false, int objInd = -1) :
-			p0(p), nv(n), valid(_valid), objectIndex(objInd)
+			Vector n = Vector(0, 0, 0), bool _valid = false, int objInd = -1)
 	{
+		r = _r;
+		p0 = p;
+		nv = n;
+		valid = _valid;
+		objectIndex = objInd;
 	}
 };
 
@@ -295,6 +300,7 @@ struct Object
 {
 	Anyag *anyag;
 	virtual Intersection intersect(const Ray& ray) = 0;
+	virtual Vector normal(const Vector& p) = 0;
 	virtual ~Object()
 	{
 	}
@@ -333,7 +339,7 @@ struct Scene
 		lights[numLights++] = l;
 	}
 
-	Intersection findClosestIntersect(const Ray& r)
+	Intersection intersectAll(const Ray& r)
 	{
 		float closest_dist = 0;
 		Intersection theClosest(r);
@@ -363,10 +369,10 @@ struct Scene
 		Color retColor;
 		if (iter < DMAX)
 		{
-			Intersection i = findClosestIntersect(r);
+			Intersection i = intersectAll(r);
 			if (i.objectIndex != -1)
 			{
-				return objects[i.objectIndex]->anyag->getColor(i, lights,
+				retColor += objects[i.objectIndex]->anyag->getColor(i, lights,
 						numLights, iter);
 			}
 			else
@@ -424,7 +430,7 @@ struct DiffuzAnyag: public Anyag
 			{
 				Vector d = (lights[i].p0 - itrs.p0).norm();
 				Ray shadowRay(itrs.p0 + (d * epsilon), d);
-				Intersection shadowHit = scene.findClosestIntersect(shadowRay);
+				Intersection shadowHit = scene.intersectAll(shadowRay);
 				if (!shadowHit.valid
 						|| (shadowRay.p0 - shadowHit.p0).Length()
 								> (shadowRay.p0 - lights[i].p0).Length())
@@ -435,7 +441,7 @@ struct DiffuzAnyag: public Anyag
 					float cost = Ll * itrs.nv.norm();
 					retColor = retColor
 							+ (lights[i].color
-									//* Q_rsqrt((lights[i].p0 - itrs.p0).Length())
+									* (1 / (itrs.p0 - lights[i].p0).Length())
 									* kd * MAX(cost, 0.0f));
 				}
 			}
@@ -467,15 +473,10 @@ struct ReflektivAnyag: public Anyag
 	{
 		Ray reflected_ray;
 		reflected_ray.dv = inter.r.dv
-				- inter.nv * (inter.nv * inter.r.dv) * 2.0f;
-		reflected_ray.p0 = inter.p0 * (1.000001);
+				- 2.0f * inter.nv * (inter.nv * inter.r.dv);
+		reflected_ray.p0 = inter.p0 + (inter.r.dv * epsilon );
 		Color traced = (scene.trace(reflected_ray, recursion_level + 1));
-		float r = traced.r;
-		if (r > 0.9)
-		{
-			int a = 2;
-			a += 2;
-		}
+//		traced = Color(0.5,0.5,0.5);
 		Color f = F((-1) * (inter.r.dv * inter.nv));
 		return (f * traced).saturated();
 	}
@@ -508,55 +509,67 @@ struct Uljanov: public Object
 		anyag = a;
 	}
 
-	Vector normal(Vector v)
+	Vector normal(const Vector& p)
 	{
 		Vector n = 2.0f
-				* Vector((v.x - p1.x) + (v.x - p2.x),
-						(v.y - p1.y) + (v.y - p2.x),
-						(v.z - p1.z) + (v.z - p2.z));
-//		if (((int) (v.x * 1000)) % 10 == 0)
-//		{
-//			normals[normal_nums++][0] = v - Vector(0.5,0.5,0);
-//			normals[normal_nums][1] = v + n.norm() - Vector(0.5,0.5,0);
-//		}
+				* Vector((p.x - p1.x) + (p.x - p2.x),
+						(p.y - p1.y) + (p.y - p2.y),
+						(p.z - p1.z) + (p.z - p2.z));
 		return n.norm();
 	}
 
 	Intersection intersect(const Ray& ray)
 	{
-		double dvx = ray.dv.x;
-		double dvy = ray.dv.y;
-		double dvz = ray.dv.z;
-		double p0x = ray.p0.x;
-		double p0y = ray.p0.y;
-		double p0z = ray.p0.z;
-		double x0 = p1.x;
-		double y0 = p1.y;
-		double z0 = p1.z;
-		double x1 = p2.x;
-		double y1 = p2.y;
-		double z1 = p2.z;
+		float dvx = ray.dv.x;
+		float dvy = ray.dv.y;
+		float dvz = ray.dv.z;
+		float p0x = ray.p0.x;
+		float p0y = ray.p0.y;
+		float p0z = ray.p0.z;
+		float x0 = p1.x;
+		float y0 = p1.y;
+		float z0 = p1.z;
+		float x1 = p2.x;
+		float y1 = p2.y;
+		float z1 = p2.z;
 		// (x-x0)^2 + (y-y0)^2 + (z-z0)^2 + (x-x1)^2 + (y-y1)^2 + (z-z1)^2 - c = 0
-		double a = 2.0f * (dvx * dvx + dvy * dvy + dvz * dvz);
-		double b = 2 * dvx * (p0x - x0) + 2 * dvy * (p0y - y0)
+		float a = 2.0f * (dvx * dvx + dvy * dvy + dvz * dvz);
+		float b = 2 * dvx * (p0x - x0) + 2 * dvy * (p0y - y0)
 				+ 2 * dvz * (p0z - z0)
 				+ (2 * dvx * (p0x - x1) + 2 * dvy * (p0y - y1)
 						+ 2 * dvz * (p0z - z1));
-		double _c = x0 * x0 + y0 * y0 + z0 * z0 + p0x * p0x + p0y * p0y
+		float _c = x0 * x0 + y0 * y0 + z0 * z0 + p0x * p0x + p0y * p0y
 				+ p0z * p0z - 2 * (x0 * p0x + y0 * p0y + z0 * p0z) + x1 * x1
 				+ y1 * y1 + z1 * z1 + p0x * p0x + p0y * p0y + p0z * p0z
 				- 2 * (x1 * p0x + y1 * p0y + z1 * p0z) - c;
-		double d = b * b - 4 * a * _c;
+		float d = b * b - 4 * a * _c;
 		if (d < 0)
 		{
 			return Intersection();
 		}
-		double t = ((-1.0 * b - sqrt(d)) / (2.0 * a));
-//		std::cout << "Intersect, t: " << t << std::endl;
-		if (t >= epsilon)
+		float t = -1;
+		float t1 = ((-1.0 * b + sqrt(d)) / (2.0 * a));
+		float t2 = ((-1.0 * b - sqrt(d)) / (2.0 * a));
+		if ((t2 > t1 || t2 < epsilon) && t1 > epsilon)
+			t = t1;
+		if ((t1 > t2 || t1 < epsilon) && t2 > epsilon)
+			t = t2;
+
+		if (t > epsilon)
 		{
-			return Intersection(ray, ray.p0 + (t < epsilon ? 0 : t) * ray.dv,
-					normal(ray.p0 + ray.dv * t), true);
+			Vector n = normal(ray.dv * t + ray.p0);
+			float rayd = pow((p1 - ray.p0).Length(), 2)
+					+ pow((p2 - ray.p0).Length(), 2);
+			if (rayd < c)
+			{
+//				n = n * (-1.0f);
+			}
+			return Intersection(ray, ray.p0 + t * ray.dv, n, true);
+		}
+		else if (t == 0)
+		{
+			Vector n = normal(ray.dv * t + ray.p0);
+			return Intersection(ray, ray.p0, n, true);
 		}
 		else
 		{
@@ -564,11 +577,6 @@ struct Uljanov: public Object
 		}
 	}
 };
-
-Uljanov *nagyUljanov = new Uljanov(&Feher, Vector(0, 0, 9), Vector(1, 3, 13),
-		455);
-Uljanov *kisUljanov = new Uljanov(&Ezust, Vector(0, 1, -35), Vector(0, 1, -35),
-		1);
 
 struct Czermanik: public Object
 {
@@ -582,6 +590,11 @@ struct Czermanik: public Object
 		e2 = _e2;
 		c = _c;
 		anyag = a;
+	}
+
+	Vector normal(const Vector& p)
+	{
+		return (p - e1.p0).norm();
 	}
 
 	Intersection intersect(const Ray& ray)
@@ -606,13 +619,17 @@ struct Floor: public Object
 		nv = n.norm();
 	}
 
+	Vector normal(const Vector& p)
+	{
+		return nv;
+	}
+
 	Intersection intersect(const Ray& r)
 	{
 		float r_t = (p0 - r.p0) * nv / (r.dv * nv);
 		if (!isnan(r_t) && r_t >= 0)
 		{
 			Vector metszes = r.p0 + r_t * r.dv;
-//			if ((metszes - p0).Length() < 10)
 			return Intersection(r, metszes, nv, true);
 		}
 		return Intersection();
@@ -621,7 +638,7 @@ struct Floor: public Object
 	{
 
 	}
-}*diffuseFloor = new Floor(&Zold, Vector(0, -1, 0), Vector(0, 1, 0));
+};
 
 struct Camera
 {
@@ -640,8 +657,6 @@ struct Camera
 
 	void takePicture()
 	{
-//		memset(&normals,0,sizeof(normals));
-//		normal_nums = 0;
 #pragma omp parallel for
 		for (int x = 0; x < screenWidth; ++x)
 		{
@@ -657,39 +672,44 @@ struct Camera
 		Vector p = lookat + (float) ((2.0f * x) / (screenWidth - 1.0f)) * right
 				+ (float) ((2.0f * y) / (screenHeight - 1.0f)) * up;
 		Ray r(eye, (p - eye).norm());
-//		std::cout << "Shooting ray from: " << eye.x << "," << eye.y << "," << eye.z << std::endl;
-//		std::cout << "Pixel: " << x << "," << y << std::endl;
-//		std::cout << "r.dv: " << r.dv.x << "," << r.dv.y << "," << r.dv.z
-//				<< std::endl;
 		Color c = scene.trace(r, 0);
 		scene.pixels[x + y * screenWidth] = c;
 	}
-	// TODO Camera pozicio lookat stb mas helyre!!!
-} camera(Vector(1.4, 1, 10), Vector(-0.5, 0, -1), Vector(0, 1, 0));	//Vector(3,2,-1), Vector(0.5,1,1), Vector(0,1,0));
+};
+
+Floor *diffuseFloor = new Floor(&Zold, Vector(0, -1, 0), Vector(0, 1, 0));
+
+Uljanov *kisUljanov = new Uljanov(&Ezust, Vector(1, 0, -32), Vector(1, 0, -32),
+		1);
+
+Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(0, 0, -35), Vector(0, 0, -35),
+		100000);
+
+Camera camera(Vector(0, 1, 10), Vector(-1, 0, -1), Vector(0, 1, 0));
+
+LightSource ambient(LightSource::AMBIENS, Color(0.2f, 0.2f, 0.2f));
+
+LightSource lightP1(LightSource::PONT, Color(10.0f, 10.0f, 10.0f),
+		Vector(1.4, 1, -25), Vector(0, -1, -0.2));
+
+LightSource lightP2(LightSource::PONT, Color(10.0f, 10.0f, 10.0f),
+		Vector(1.4, 1, -50), Vector(0, -1, -0.2));
+
+LightSource lightP3(LightSource::PONT, Color(50.0f, 50.0f, 50.0f),
+		Vector(5, 5, 11), Vector(0, 2, 0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization()
 {
 	glViewport(0, 0, screenWidth, screenHeight);
 
-	LightSource ambient(LightSource::AMBIENS, Color(0.2f, 0.2f, 0.2f));
-
-	LightSource lightP1(LightSource::PONT, Color(50.0f, 50.0f, 50.0f),
-			Vector(1.4, 1, -10), Vector(0, -1, -0.2));
-
-	LightSource lightP2(LightSource::PONT, Color(50.0f, 50.0f, 50.0f),
-			Vector(5, 5, 11), Vector(0, 0, -1));
-
-	LightSource lightP3(LightSource::PONT, Color(20.0f, 20.0f, 0.0f),
-			Vector(5, 5, 11), Vector(0, 0, -1));
-
 	scene.addObject(diffuseFloor);
-	scene.addObject(kisUljanov);
-//	scene.addObject(nagyUljanov);
+//	scene.addObject(kisUljanov);
+	scene.addObject(nagyUljanov);
 	scene.addLight(ambient);
 	scene.addLight(lightP1);
-//	scene.addLight(lightP2);
-//	scene.addLight(lightP3);
+	scene.addLight(lightP2);
+	scene.addLight(lightP3);
 	camera.takePicture();
 
 }
@@ -701,15 +721,6 @@ void onDisplay()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
 	glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, scene.pixels);
-
-//	glBegin(GL_LINES);
-//	glColor3f(0, 0, 0);
-//	for (int i = 0; i < normal_nums; ++i)
-//	{
-//		glVertex3fv((float*) &normals[i][0]);
-//		glVertex3fv((float*) &normals[i][1]);
-//	}
-//	glEnd();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -769,7 +780,7 @@ void onKeyboard(unsigned char key, int x, int y)
 	else if (key == 's')
 	{
 		scene.lights[scene.numLights - 1].p0.x += 0.1;
-//		std::cout << scene.lights[scene.numLights - 1].p0.x << std::endl;
+		//      std::cout << scene.lights[scene.numLights - 1].p0.x << std::endl;
 		camera.takePicture();
 		glutPostRedisplay();
 	}
@@ -790,23 +801,23 @@ void onKeyboard(unsigned char key, int x, int y)
 	else if (key == '1')
 	{
 		scene.lights[1].color =
-				scene.lights[0].color.r > 0 ?
-						Color(0, 0, 0) : Color(50, 50, 50);
+				scene.lights[1].color.r > 0 ?
+						Color(0, 0, 0) : Color(10, 10, 10);
 		camera.takePicture();
 		glutPostRedisplay();
 	}
 	else if (key == '2')
 	{
 		scene.lights[2].color =
-				scene.lights[1].color.r > 0 ?
-						Color(0, 0, 0) : Color(50, 50, 50);
+				scene.lights[2].color.r > 0 ?
+						Color(0, 0, 0) : Color(10, 10, 10);
 		camera.takePicture();
 		glutPostRedisplay();
 	}
 	else if (key == '3')
 	{
 		scene.lights[3].color =
-				scene.lights[2].color.r > 0 ?
+				scene.lights[3].color.r > 0 ?
 						Color(0, 0, 0) : Color(20, 20, 20);
 		camera.takePicture();
 		glutPostRedisplay();
@@ -853,18 +864,29 @@ void onKeyboard(unsigned char key, int x, int y)
 	}
 	else if (key == 'r')
 	{
-		kisUljanov->c += 0.1;
+		nagyUljanov->c *= 2.0f;
 		camera.takePicture();
 		glutPostRedisplay();
 	}
 	else if (key == 'e')
 	{
-		kisUljanov->c -= 0.1;
+		nagyUljanov->c *= 0.5f;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'q')
+	{
+		kisUljanov->c *= 2.0f;
+		camera.takePicture();
+		glutPostRedisplay();
+	}
+	else if (key == 'w')
+	{
+		kisUljanov->c *= 0.5f;
 		camera.takePicture();
 		glutPostRedisplay();
 	}
 }
-
 // Billentyuzet esemenyeket lekezelo fuggveny (felengedes)
 void onKeyboardUp(unsigned char key, int x, int y)
 {
@@ -875,7 +897,7 @@ void onKeyboardUp(unsigned char key, int x, int y)
 void onMouse(int button, int state, int x, int y)
 {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		glutPostRedisplay(); 				// Ilyenkor rajzold ujra a kepet
+		glutPostRedisplay(); // Ilyenkor rajzold ujra a kepet
 }
 
 // Eger mozgast lekezelo fuggveny
@@ -893,7 +915,7 @@ void onIdle()
 		glutPostRedisplay();
 		first = false;
 	}
-	long time = glutGet(GLUT_ELAPSED_TIME);
+//	long time = glutGet(GLUT_ELAPSED_TIME);
 //	if ((time % 1000) / 100 >= 5)
 //	{
 //		kisUljanov->p1.x = ((time % 100) / 50.0f);
@@ -917,21 +939,21 @@ int main(int argc, char **argv)
 
 	glutCreateWindow("Grafika hazi feladat"); // Alkalmazas ablak megszuletik es megjelenik a kepernyon
 
-	glMatrixMode(GL_MODELVIEW);	// A MODELVIEW transzformaciot egysegmatrixra inicializaljuk
+	glMatrixMode(GL_MODELVIEW); // A MODELVIEW transzformaciot egysegmatrixra inicializaljuk
 	glLoadIdentity();
-	glMatrixMode(GL_PROJECTION);// A PROJECTION transzformaciot egysegmatrixra inicializaljuk
+	glMatrixMode(GL_PROJECTION); // A PROJECTION transzformaciot egysegmatrixra inicializaljuk
 	glLoadIdentity();
 
-	onInitialization();			// Az altalad irt inicializalast lefuttatjuk
+	onInitialization(); 			// Az altalad irt inicializalast lefuttatjuk
 
-	glutDisplayFunc(onDisplay);				// Esemenykezelok regisztralasa
+	glutDisplayFunc(onDisplay); 				// Esemenykezelok regisztralasa
 	glutMouseFunc(onMouse);
 	glutIdleFunc(onIdle);
 	glutKeyboardFunc(onKeyboard);
 	glutKeyboardUpFunc(onKeyboardUp);
 	glutMotionFunc(onMouseMotion);
 
-	glutMainLoop();					// Esemenykezelo hurok
+	glutMainLoop(); 				// Esemenykezelo hurok
 
 	return 0;
 }
