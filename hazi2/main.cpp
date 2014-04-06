@@ -73,8 +73,9 @@ T MIN(T a, T b)
 	return (a < b ? a : b);
 }
 
-float epsilon = 0.0001;
-int DMAX = 7;
+float epsilon = 0.0000001;
+float dv_szorzo = 0.001;
+int DMAX = 10;
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -133,9 +134,6 @@ Vector operator*(float f, const Vector& v)
 {
 	return Vector(v.x * f, v.y * f, v.z * f);
 }
-
-bool filmic = false;
-bool reinhard = false;
 
 //--------------------------------------------------------
 // Spektrum illetve szin
@@ -204,27 +202,22 @@ struct Color
 				MAX(MIN(b, 1.0f), 0.0f));
 	}
 
+	// http://filmicgames.com/archives/75
+	Color toneMapped() const
+	{
+		float y = 0.21f * r + 0.72f * g + 0.07f * b;
+		float y_ = y / (y + 1);
+		return (*this * (y_ / y)).saturated();
+	}
+
 	bool operator==(const Color& c) const
 	{
 		return (r == c.r && g == c.g && b == c.b);
-	}
-
-	bool operator<(const Color& c)
-	{
-		return (r < c.r && g < c.g && b < c.b);
-	}
-
-	bool operator>(const Color& c)
-	{
-		return (r > c.r && g > c.g && b > c.b);
 	}
 };
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
-
-//Vector normals[100000][2];
-//int normal_nums = 0;
 
 float normCoordX(float x)
 {
@@ -241,18 +234,26 @@ struct Ray
 	Vector p0;
 	Vector dv;
 
-	Ray(Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0 - 1)) :
-			p0(_p0), dv(_dv.norm())
+	bool in_air;
+
+	Ray(Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0 - 1),
+			bool inair = true)
 	{
+		p0 = _p0;
+		dv = _dv.norm();
+		in_air = inair;
 	}
 
 	Ray(const Ray& r)
 	{
 		p0 = r.p0;
 		dv = r.dv;
+		in_air = r.in_air;
 	}
 };
 
+// Az alabbi struktura felepitese reszben innen szarmazik:
+// https://wiki.sch.bme.hu/Sz%C3%A1m%C3%ADt%C3%B3g%C3%A9pes_grafika_h%C3%A1zi_feladat_tutorial#Hogyan_k.C3.B6vess.C3.BCk_a_sugarakat.3F
 struct Intersection
 {
 	Ray r;
@@ -273,20 +274,16 @@ struct Intersection
 
 struct LightSource
 {
-	enum Type
-	{
-		AMBIENS, PONT
-	} type;
 
 	Color color;
 	Color intensity;
 	Vector p0;
 	Vector dv;
 
-	LightSource(Type t = AMBIENS, Color c = Color(1, 1, 1), Color intens = Color(1.0f,1.0f,1.0f),
+	LightSource(Color c = Color(1, 1, 1),
+			Color intens = Color(1.0f, 1.0f, 1.0f),
 			Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0, -1))
 	{
-		type = t;
 		color = c;
 		intensity = intens;
 		p0 = _p0;
@@ -295,11 +292,7 @@ struct LightSource
 
 	Color getColor(Vector at) const
 	{
-		if(type == AMBIENS)
-		{
-			return color;
-		}
-		Color ret = color*intensity;
+		Color ret = color * intensity;
 		ret = ret / (p0 - at).Length();
 		return ret;
 
@@ -395,26 +388,6 @@ struct Scene
 				retColor += objects[i.objectIndex]->material->getColor(i,
 						lights, numLights, iter);
 			}
-			else
-			{
-				for (int i = 0; i < numLights; ++i)
-				{
-					if (lights[i].type == LightSource::AMBIENS)
-					{
-						retColor += lights[i].color;
-					}
-				}
-			}
-		}
-		else
-		{
-			for (int i = 0; i < numLights; ++i)
-			{
-				if (lights[i].type == LightSource::AMBIENS)
-				{
-					retColor += lights[i].color;
-				}
-			}
 		}
 		return retColor.saturated();
 	}
@@ -440,33 +413,21 @@ struct DiffuseMaterial: public Material
 
 		for (int i = 0; i < numLights; ++i)
 		{
-			switch (lights[i].type)
+			Vector d = (lights[i].p0 - inter.p0).norm();
+			Ray shadowRay(inter.p0 + (d * dv_szorzo), d);
+			Intersection shadowHit = scene.intersectAll(shadowRay);
+			if (!shadowHit.valid
+					|| (shadowRay.p0 - shadowHit.p0).Length()
+							> (shadowRay.p0 - lights[i].p0).Length())
 			{
-			case LightSource::AMBIENS:
-				retColor += kd * lights[i].color;
-				break;
-			case LightSource::PONT:
-			{
-				Vector d = (lights[i].p0 - inter.p0).norm();
-				Ray shadowRay(inter.p0 + (d * epsilon), d);
-				Intersection shadowHit = scene.intersectAll(shadowRay);
-				if (!shadowHit.valid
-						|| (shadowRay.p0 - shadowHit.p0).Length()
-								> (shadowRay.p0 - lights[i].p0).Length())
-				{
 //					Vector V = (-1.0f) * itrs.r.dv.norm();
-					Vector Ll = shadowRay.dv.norm();
+				Vector Ll = shadowRay.dv.norm();
 //					Vector Hl = (V + Ll).norm();
-					float cost = Ll * inter.nv.norm();
-					retColor = retColor
-							+ (lights[i].getColor(inter.p0)
-									* kd * MAX(cost, 0.0f));
-				}
+				float cost = Ll * inter.nv.norm();
+				retColor = retColor
+						+ (lights[i].getColor(inter.p0) * kd * MAX(cost, 0.0f));
 			}
-				break;
-			default:
-				break;
-			}
+
 		}
 		return retColor.saturated();
 	}
@@ -490,16 +451,19 @@ struct ReflectiveMaterial: public Material
 	{
 		Ray reflected;
 		reflected.dv = inter.r.dv - 2.0f * inter.nv * (inter.nv * inter.r.dv);
-		reflected.p0 = inter.p0 + reflected.dv.norm() * epsilon;
+		reflected.p0 = inter.p0 + reflected.dv.norm() * dv_szorzo;
 		return reflected;
 	}
 
 	Color getColor(Intersection inter, const LightSource* lights, int numLights,
 			int recursion_level)
 	{
+		if (inter.r.dv * inter.nv > 0.0f)
+		{
+			inter.nv = (-1.0f) * inter.nv;
+		}
 		Ray reflected_ray = reflect(inter);
 		Color traced = (scene.trace(reflected_ray, recursion_level + 1));
-//		traced = Color(0.5,0.5,0.5);
 		Color f = F((-1) * (inter.r.dv * inter.nv));
 		return (f * traced).saturated();
 	}
@@ -507,7 +471,52 @@ struct ReflectiveMaterial: public Material
 
 struct RefractiveMaterial: public ReflectiveMaterial
 {
+	float n;
+	float k;
 
+	RefractiveMaterial(float _n, float _k) :
+			ReflectiveMaterial(Color(_n, _n, _n), Color(_k, _k, _k))
+	{
+		n = _n;
+		k = _k;
+	}
+
+	bool refract(Intersection inter, Ray *ret)
+	{
+		float cn = (inter.r.in_air ? n : 1.0f / n);
+		float cosa = inter.nv * inter.r.dv;
+		float discrim = 1 - ((1 - cosa * cosa) / (n * n));
+		if (discrim < 0)
+		{
+			return false;
+		}
+		ret->dv =
+				(inter.r.dv / cn + inter.nv * (cosa / cn - sqrt(discrim))).norm();
+		return true;
+
+	}
+
+	Color getColor(Intersection inter, const LightSource* lights, int numLights,
+			int recursion_level)
+	{
+		if (inter.r.dv * inter.nv > 0.0f)
+		{
+			inter.nv = (-1.0f) * inter.nv;
+		}
+		Ray reflected_ray = reflect(inter);
+		Color traced = (scene.trace(reflected_ray, recursion_level + 1));
+		Color reflected_color = (F((-1) * (inter.r.dv * inter.nv))) * traced;
+		Color refracted_color;
+		Ray refracted_ray;
+		if (refract(inter, &refracted_ray))
+		{
+			refracted_ray.p0 = inter.p0 + refracted_ray.dv * dv_szorzo;
+			Color traced = scene.trace(refracted_ray, recursion_level + 1);
+			refracted_color = (Color(1, 1, 1)
+					- F((-1) * (inter.r.dv * inter.nv))) * traced;
+		}
+		return (refracted_color + reflected_color).saturated();
+	}
 };
 
 struct Egyenes
@@ -584,11 +593,6 @@ struct Uljanov: public Object
 		if (t > epsilon)
 		{
 			Vector n = normal(ray.dv * t + ray.p0);
-			float cosin = ray.dv * n;
-			if (cosin > 0)
-			{
-				n = n * (-1.0f);
-			}
 			return Intersection(ray, ray.p0 + t * ray.dv, n, true);
 		}
 		else
@@ -782,7 +786,6 @@ struct Camera
 
 	void takePicture()
 	{
-#pragma omp parallel for
 		for (int x = 0; x < screenWidth; ++x)
 		{
 			for (int y = 0; y < screenHeight; ++y)
@@ -807,7 +810,7 @@ ReflectiveMaterial Arany(Color(0.17, 0.35, 1.5), Color(3.1, 2.7, 1.9));
 
 ReflectiveMaterial Ezust(Color(0.14, 0.16, 0.13), Color(4.1, 2.3, 3.1));
 
-//RefractiveMaterial Uveg;
+RefractiveMaterial Uveg(1.5, 0);
 
 DiffuseMaterial Zold(Color(0.1, 0.4, 0.05));
 DiffuseMaterial VilagosZold(Color(0.1, 0.15, 0.1));
@@ -816,28 +819,29 @@ DiffuseMaterial Fekete(Color(0.1, 0.1, 0.1));
 
 Floor *diffuseFloor = new Floor(&Zold, Vector(0, 0.5, 0), Vector(0, 1, 0));
 
-Uljanov *kisUljanov = new Uljanov(&Ezust, Vector(0.2, 0.9, -2.4),
-		Vector(0.3, 1.1, -2.2), 0.4);
+Uljanov *kisUljanov = new Uljanov(&Ezust, Vector(0.2, 0.9, 0),
+		Vector(0.3, 1.1, 0), 0.4);
 
-Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(-1, 4, 3),
-		Vector(0.8, 2.3, -2), 2000);
+Uljanov *uvegUljanov = new Uljanov(&Uveg, Vector(-0.05, 0.8, 1.3),
+		Vector(-0.05, 0.8, 1.3), 0.1);
 
-Czermanik *metszoCzermanik = new Czermanik(&Zold,
+Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(-1, 4, 0), Vector(-1, 4, 0),
+		820);
+
+Czermanik *metszoCzermanik = new Czermanik(&Uveg,
 		Egyenes(Vector(0, 0, -2.2), Vector(0, 1, 0)),
 		Egyenes(Vector(0, 0, -2.2), Vector(0, 1, 0)), 1000);
 
-Camera camera(Vector(0, 1, 15), Vector(-1, 0.3, -0.1), Vector(0, 1, 0));
+Camera camera(Vector(1, 1, 19), Vector(-1, 0.3, -0.1), Vector(0, 1, 0));
 
-LightSource ambient(LightSource::AMBIENS, Color(0.5f, 0.5f, 0.5f));
+LightSource lightP1(Color(1.0f, 1.0f, 1.0f), Color(50, 50, 50),
+		Vector(1.4, 1, 10), Vector(0, -1, -0.2));
 
-LightSource lightP1(LightSource::PONT, Color(1.0f, 1.0f, 1.0f), Color(10,10,10),
-		Vector(1.4, 1, 0), Vector(0, -1, -0.2));
+LightSource lightP2(Color(1.0f, 1.0f, 1.0f), Color(50, 50, 50),
+		Vector(1.4, 1, 10), Vector(0.4, 1, 0.2));
 
-LightSource lightP2(LightSource::PONT, Color(1.0f, 1.0f, 1.0f), Color(10,10,10),
-		Vector(-1.4, 1, -3), Vector(0.4, -1, 0.2));
-
-LightSource lightP3(LightSource::PONT, Color(1.0f, 1.0f, 1.0f), Color(30,20,10),
-		Vector(5, 5, 3), Vector(0, 2, 0));
+LightSource lightP3(Color(1.0f, 1.0f, 1.0f), Color(10, 20, 5), Vector(5, 5, 10),
+		Vector(0, 2, 0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization()
@@ -846,9 +850,9 @@ void onInitialization()
 
 	scene.addObject(diffuseFloor);
 	scene.addObject(kisUljanov);
+	scene.addObject(uvegUljanov);
 //	scene.addObject(metszoCzermanik);
 	scene.addObject(nagyUljanov);
-	scene.addLight(ambient);
 	scene.addLight(lightP1);
 	scene.addLight(lightP2);
 	scene.addLight(lightP3);
@@ -862,7 +866,8 @@ void onDisplay()
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// torlesi szin beallitasa
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
-	glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, scene.pixels);
+//	glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, scene.pixels);
+	scene.render();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -874,9 +879,6 @@ void onKeyboard(unsigned char key, int x, int y)
 	static bool up = true;
 	switch (key)
 	{
-	case 'd':
-		glutPostRedisplay(); 		// d beture rajzold ujra a kepet
-		break;
 	case 'u':
 		scene.lights[0].color += Color(0.1, 0.1, 0.1);
 		camera.takePicture();
@@ -912,50 +914,57 @@ void onKeyboard(unsigned char key, int x, int y)
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
-	case 'a':
-		scene.lights[scene.numLights - 1].p0.x -= 0.1;
+	case 'w':
+		camera.eye.y += 1;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case 's':
-		scene.lights[scene.numLights - 1].p0.x += 0.1;
+		camera.eye.y -= 1;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
-	case 'k':
-		camera.eye.x -= 1.41425362;
-		camera.eye.y -= 1.41425362;
+	case 'a':
+		camera.eye.x -= 1;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
+		camera.takePicture();
+		glutPostRedisplay();
+		break;
+	case 'd':
+		camera.eye.x += 1;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
+		camera.takePicture();
+		glutPostRedisplay();
+		break;
+	case 'c':
 		camera.eye.z -= 1;
-		camera.right = camera.lookat % camera.up;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case 'x':
-		camera.eye.x += 1.41425362;
-		camera.eye.y += 1.41425362;
 		camera.eye.z += 1;
-		camera.right = camera.lookat % camera.up;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case '1':
-		scene.lights[1].color =
-				scene.lights[1].color.r > 0 ?
-						Color(0, 0, 0) : Color(1, 1, 1);
+		scene.lights[0].color =
+				scene.lights[0].color.r > 0 ? Color(0, 0, 0) : Color(1, 1, 1);
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case '2':
-		scene.lights[2].color =
-				scene.lights[2].color.r > 0 ?
-						Color(0, 0, 0) : Color(1, 1, 1);
+		scene.lights[1].color =
+				scene.lights[1].color.r > 0 ? Color(0, 0, 0) : Color(1, 1, 1);
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case '3':
-		scene.lights[3].color =
-				scene.lights[3].color.r > 0 ?
-						Color(0, 0, 0) : Color(1, 1, 1);
+		scene.lights[2].color =
+				scene.lights[2].color.r > 0 ? Color(0, 0, 0) : Color(1, 1, 1);
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
@@ -1007,23 +1016,18 @@ void onKeyboard(unsigned char key, int x, int y)
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
-	case 'w':
-		kisUljanov->c *= 2.0f;
-		camera.takePicture();
-		glutPostRedisplay();
-		break;
 	case 'q':
 		kisUljanov->c *= 0.5f;
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
-	case 'f':
-		filmic = !filmic;
+	case 'o':
+		dv_szorzo /= 10;
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
-	case ' ':
-		reinhard = !reinhard;
+	case 'p':
+		dv_szorzo *= 10;
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
