@@ -144,7 +144,7 @@ struct Color
 
 	Color()
 	{
-		r = g = b = 0;
+		r = g = b = 0.03;
 	}
 	Color(float r0, float g0, float b0)
 	{
@@ -622,23 +622,40 @@ struct Czermanik: public Object
 		float m1 = e1.dv.y;
 		float n1 = e1.dv.z;
 
+		float l2 = e2.dv.x;
+		float m2 = e2.dv.y;
+		float n2 = e2.dv.z;
+
 		float x1 = e1.p0.x;
 		float y1 = e1.p0.y;
 		float z1 = e1.p0.z;
+
+		float x2 = e2.p0.x;
+		float y2 = e2.p0.y;
+		float z2 = e2.p0.z;
 
 		float x = p.x;
 		float y = p.y;
 		float z = p.z;
 
 		float nx = 2 * m1 * ((x - x1) - l1 - y + y1)
-				+ 2 * n1 * (l1 * (z1 - z) + n1 * (x - x1));
+				+ 2 * n1 * (l1 * (z1 - z) + n1 * (x - x1))
+				+ 2 * m2 * ((x - x2) - l2 - y + y2)
+				+ 2 * n2 * (l2 * (z2 - z) + n2 * (x - x2));
 
 		float ny = 2
 				* (l1 + m1 * (n1 * z - n1 * z1 - x + x1)
-						+ (n1 * n1 + 1) * (y - y1));
+						+ (n2 * n2 + 2) * (y - y2))
+				+ 2
+						* (l2 + m2 * (n2 * z - n2 * z2 - x + x2)
+								+ (n2 * n2 + 2) * (y - y2));
 
 		float nz = 2 * l1 * (l1 * (z - z1) + n1 * (x1 - x))
-				+ 2 * m1 * (m1 * (z - z1) + n1 * (y - y1));
+				+ 2 * m2 * (m2 * (z - z2) + n2 * (y - y2))
+				+ 2 * l2 * (l2 * (z - z2) + n2 * (x2 - x))
+				+ 2 * m2 * (m2 * (z - z2) + n2 * (y - y2));
+
+//		return (p - e1.p0).norm();
 
 		return Vector(nx, ny, nz).norm();
 	}
@@ -671,37 +688,72 @@ struct Czermanik: public Object
 		float y2 = e2.p0.y;
 		float z2 = e2.p0.z;
 		float szorzo1 = 1 / (l1 * l1 + m1 * m1 + n1 * n1);
+		float szorzo2 = 1 / (l2 * l2 + m2 * m2 + n2 * n2);
 
 		// MAGIC STARTS HERE
-		float a = (d * d * m1 * m1 + d * d * n1 * n1 - 2.0f * d * f * l1 * n1
-				- 2.0f * e * d * l1 * m1 + f * f * l1 * l1 + f * f * m1 * m1
-				- 2.0f * e * f * m1 * n1 + e * e * l1 * l1 + e * e * n1 * n1);
+		float a = (szorzo1
+				* (d * d * m1 * m1 + d * d * n1 * n1 - 2.0f * d * f * l1 * n1
+						- 2.0f * e * d * l1 * m1 + f * f * l1 * l1
+						+ f * f * m1 * m1 - 2.0f * e * f * m1 * n1
+						+ e * e * l1 * l1 + e * e * n1 * n1))
+				+ (szorzo2
+						* (d * d * m2 * m2 + d * d * n2 * n2
+								- 2.0f * d * f * l2 * n2
+								- 2.0f * e * d * l2 * m2 + f * f * l2 * l2
+								+ f * f * m2 * m2 - 2.0f * e * f * m2 * n2
+								+ e * e * l2 * l2 + e * e * n2 * n2));
 
-		float b = 2.0f
+		float b = (szorzo1 * 2.0f
 				* (d * l1 * m1 * (y1 - q) - d * l1 * n1 * r + d * l1 * n1 * z1
 						+ (d * m1 * m1 + d * n1 * n1) * (p - x1)
 						+ f * l1 * l1 * (r - z1) - f * l1 * n1 * p
 						+ f * l1 * n1 * x1 + f * m1 * m1 * z1 - f * m1 * n1 * q
 						+ f * m1 * n1 * y1 + e * l1 * l1 * (q - y1)
 						- e * l1 * m1 * p - e * m1 * n1 * r + e * m1 * n1 * z1
-						+ e * n1 * n1 * q - e * n1 * n1 * y1);
+						+ e * n1 * n1 * q - e * n1 * n1 * y1))
+				+ (szorzo2 * 2.0f
+						* (d * l2 * m2 * (y2 - q) - d * l2 * n2 * r
+								+ d * l2 * n2 * z2
+								+ (d * m2 * m2 + d * n2 * n2) * (p - x2)
+								+ f * l2 * l2 * (r - z2) - f * l2 * n2 * p
+								+ f * l2 * n2 * x2 + f * m2 * m2 * z2
+								- f * m2 * n2 * q + f * m2 * n2 * y2
+								+ e * l2 * l2 * (q - y2) - e * l2 * m2 * p
+								- e * m2 * n2 * r + e * m2 * n2 * z2
+								+ e * n2 * n2 * q - e * n2 * n2 * y2));
 
-		float c = (l1 * l1 * q * q - 2 * l1 * l1 * q * y1 + l1 * l1 * r * r
-				- 2 * l1 * l1 * r * z1 + l1 * l1 * y1 * y1 + l1 * l1 * z1 * z1
-				- 2 * l1 * m1 * p * (q + y1) + 2 * l1 * m1 * q * x1
-				- 2 * l1 * m1 * x1 * y1 - 2 * l1 * n1 * p * r
-				+ 2 * l1 * n1 * p * z1 + 2 * l1 - n1 * r * x1
-				- 2 * l1 * n1 * x1 * z1 + m1 * m1 * p * p - 2 * m1 * m1 * p * x1
-				+ m1 * m1 * r * r - 2 * m1 * m1 * r * z1 + m1 - m1 * x1 * x1
-				+ m1 * m1 * z1 * z1 - 2 * m1 * n1 * q * r + 2 * m1 * n1 * q * z1
-				+ 2 * m1 * n1 * r * y1 - 2 * m1 * n1 * y1 * z1 + n1 * n1 * p * p
-				- 2 * n1 * n1 * p * x1 + n1 * n1 * q * q - 2 * n1 * n1 * q * y1
-				+ n1 * n1 * x1 * x1 + n1 * n1 * y1 * y1 - k);
+		float c = szorzo1
+				* (l1 * l1 * q * q - 2 * l1 * l1 * q * y1 + l1 * l1 * r * r
+						- 2 * l1 * l1 * r * z1 + l1 * l1 * y1 * y1
+						+ l1 * l1 * z1 * z1 - 2 * l1 * m1 * p * (q + y1)
+						+ 2 * l1 * m1 * q * x1 - 2 * l1 * m1 * x1 * y1
+						- 2 * l1 * n1 * p * r + 2 * l1 * n1 * p * z1 + 2 * l1
+						- n1 * r * x1 - 2 * l1 * n1 * x1 * z1 + m1 * m1 * p * p
+						- 2 * m1 * m1 * p * x1 + m1 * m1 * r * r
+						- 2 * m1 * m1 * r * z1 + m1 - m1 * x1 * x1
+						+ m1 * m1 * z1 * z1 - 2 * m1 * n1 * q * r
+						+ 2 * m1 * n1 * q * z1 + 2 * m1 * n1 * r * y1
+						- 2 * m1 * n1 * y1 * z1 + n1 * n1 * p * p
+						- 2 * n1 * n1 * p * x1 + n1 * n1 * q * q
+						- 2 * n1 * n1 * q * y1 + n1 * n1 * x1 * x1
+						+ n1 * n1 * y1 * y1 - k)
+				+ szorzo2
+						* (l2 * l2 * q * q - 2 * l2 * l2 * q * y2
+								+ l2 * l2 * r * r - 2 * l2 * l2 * r * z2
+								+ l2 * l2 * y2 * y2 + l2 * l2 * z2 * z2
+								- 2 * l2 * m2 * p * (q + y2)
+								+ 2 * l2 * m2 * q * x2 - 2 * l2 * m2 * x2 * y2
+								- 2 * l2 * n2 * p * r + 2 * l2 * n2 * p * z2
+								+ 2 * l2 - n2 * r * x2 - 2 * l2 * n2 * x2 * z2
+								+ m2 * m2 * p * p - 2 * m2 * m2 * p * x2
+								+ m2 * m2 * r * r - 2 * m2 * m2 * r * z2 + m2
+								- m2 * x2 * x2 + m2 * m2 * z2 * z2
+								- 2 * m2 * n2 * q * r + 2 * m2 * n2 * q * z2
+								+ 2 * m2 * n2 * r * y2 - 2 * m2 * n2 * y2 * z2
+								+ n2 * n2 * p * p - 2 * n2 * n2 * p * x2
+								+ n2 * n2 * q * q - 2 * n2 * n2 * q * y2
+								+ n2 * n2 * x2 * x2 + n2 * n2 * y2 * y2 - k);
 		// MAGIC ENDS HERE
-
-		a *= szorzo1;
-		b *= szorzo1;
-		c *= szorzo1;
 
 		float discrmin = b * b - 4 * a * c;
 
@@ -720,11 +772,6 @@ struct Czermanik: public Object
 		if (t > epsilon)
 		{
 			Vector n = normal(ray.dv * t + ray.p0);
-			float cosin = ray.dv * n;
-			if (cosin > 0)
-			{
-				n = n * (-1.0f);
-			}
 			return Intersection(ray, ray.p0 + t * ray.dv, n, true);
 		}
 		else
@@ -786,6 +833,7 @@ struct Camera
 
 	void takePicture()
 	{
+#pragma omp parallel for
 		for (int x = 0; x < screenWidth; ++x)
 		{
 			for (int y = 0; y < screenHeight; ++y)
@@ -822,26 +870,30 @@ Floor *diffuseFloor = new Floor(&Zold, Vector(0, 0.5, 0), Vector(0, 1, 0));
 Uljanov *kisUljanov = new Uljanov(&Ezust, Vector(0.2, 0.9, 0),
 		Vector(0.3, 1.1, 0), 0.4);
 
-Uljanov *uvegUljanov = new Uljanov(&Uveg, Vector(-0.05, 0.8, 1.3),
-		Vector(-0.05, 0.8, 1.3), 0.1);
+Uljanov *uvegUljanov = new Uljanov(&Uveg, Vector(-0.05, 0.72, 1.3),
+		Vector(-0.05, 0.72, 1.3), 0.1);
 
-Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(-1, 4, 0), Vector(-1, 4, 0),
-		820);
+Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(-1, 4, 60), Vector(-1, 4, 60),
+		7800);
 
 Czermanik *metszoCzermanik = new Czermanik(&Uveg,
-		Egyenes(Vector(0, 0, -2.2), Vector(0, 1, 0)),
-		Egyenes(Vector(0, 0, -2.2), Vector(0, 1, 0)), 1000);
+		Egyenes(Vector(0, 1, 0), Vector(0, -1, 1)),
+		Egyenes(Vector(0, 1, 2), Vector(-1, 0, 0)), 1);
 
-Camera camera(Vector(1, 1, 19), Vector(-1, 0.3, -0.1), Vector(0, 1, 0));
+Czermanik *kiteroCzermanik = new Czermanik(&Uveg,
+		Egyenes(Vector(0, 1, -10), Vector(0, 1, 0)),
+		Egyenes(Vector(0, 1, -30), Vector(-1, 0, 0)), 1);
 
-LightSource lightP1(Color(1.0f, 1.0f, 1.0f), Color(50, 50, 50),
+Camera camera(Vector(-1, 5, 19), Vector(-1.2, 0.3, 1), Vector(0, 1, 0));
+
+LightSource lightP1(Color(1.0f, 1.0f, 1.0f), Color(10, 10, 10),
 		Vector(1.4, 1, 10), Vector(0, -1, -0.2));
 
-LightSource lightP2(Color(1.0f, 1.0f, 1.0f), Color(50, 50, 50),
-		Vector(1.4, 1, 10), Vector(0.4, 1, 0.2));
+LightSource lightP2(Color(1.0f, 1.0f, 1.0f), Color(10, 10, 10),
+		Vector(-1.4, 1, 10), Vector(0.4, 1, 0.2));
 
-LightSource lightP3(Color(1.0f, 1.0f, 1.0f), Color(10, 20, 5), Vector(5, 5, 10),
-		Vector(0, 2, 0));
+LightSource lightP3(Color(1.0f, 1.0f, 1.0f), Color(40, 10, 50),
+		Vector(1.4, 5, 10), Vector(0, 2, 0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization()
@@ -850,8 +902,9 @@ void onInitialization()
 
 	scene.addObject(diffuseFloor);
 	scene.addObject(kisUljanov);
-	scene.addObject(uvegUljanov);
-//	scene.addObject(metszoCzermanik);
+//	scene.addObject(uvegUljanov);
+	scene.addObject(metszoCzermanik);
+//	scene.addObject(kiteroCzermanik);
 	scene.addObject(nagyUljanov);
 	scene.addLight(lightP1);
 	scene.addLight(lightP2);
@@ -879,17 +932,6 @@ void onKeyboard(unsigned char key, int x, int y)
 	static bool up = true;
 	switch (key)
 	{
-	case 'u':
-		scene.lights[0].color += Color(0.1, 0.1, 0.1);
-		camera.takePicture();
-		glutPostRedisplay();
-		break;
-
-	case 'z':
-		scene.lights[0].color -= Color(0.1, 0.1, 0.1);
-		camera.takePicture();
-		glutPostRedisplay();
-		break;
 	case 'l':
 		if (up)
 		{
@@ -939,13 +981,17 @@ void onKeyboard(unsigned char key, int x, int y)
 		glutPostRedisplay();
 		break;
 	case 'c':
-		camera.eye.z -= 1;
+		camera.eye.z -= 10;
+		camera.lookat.z -= 10;
+		camera.lookat.y -= 0.5;
 		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case 'x':
-		camera.eye.z += 1;
+		camera.eye.z += 10;
+		camera.lookat.z += 10;
+		camera.lookat.y += 0.5;
 		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
@@ -1031,6 +1077,12 @@ void onKeyboard(unsigned char key, int x, int y)
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
+	case 'z':
+		camera.lookat.z += 2;
+		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
+		camera.takePicture();
+		glutPostRedisplay();
+		break;
 	default:
 		break;
 	}
@@ -1058,12 +1110,25 @@ void onMouseMotion(int x, int y)
 void onIdle()
 {
 	static bool first = true;
+//	static int a = 0;
 	if (first)
 	{
 		glutPostRedisplay();
 		first = false;
 	}
 //	long time = glutGet(GLUT_ELAPSED_TIME);
+//	if (a++ > 0)
+//	{
+//		a = 0;
+//		uvegUljanov->p1.z = 1.3 - 5.0f * sin(time / 100000.0f);
+//		uvegUljanov->p2.z = 1.3 - 5.0f * sin(time / 100000.0f);
+//		uvegUljanov->p1.x = -0.05 + 0.5f * sin(time / 50000.0f);
+//		uvegUljanov->p2.x = -0.05 + 0.5f * sin(time / 50000.0f);
+//		kisUljanov->p1.y = 0.9 + 0.6 + sinf(time / 2500.0f);
+//		kisUljanov->p2.y = 1.1 + 0.6 + sinf(time / 2500.0f);
+//		camera.takePicture();
+//		glutPostRedisplay();
+//	}
 //	if ((time % 1000) / 100 >= 5)
 //	{
 //		kisUljanov->p1.x = ((time % 100) / 50.0f);
