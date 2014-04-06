@@ -60,7 +60,7 @@
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
-#include <iostream>
+
 template<typename T>
 T MAX(T a, T b)
 {
@@ -279,13 +279,30 @@ struct LightSource
 	} type;
 
 	Color color;
+	Color intensity;
 	Vector p0;
 	Vector dv;
 
-	LightSource(Type t = AMBIENS, Color c = Color(1, 1, 1),
-			Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0, -1)) :
-			type(t), color(c), p0(_p0), dv(_dv)
+	LightSource(Type t = AMBIENS, Color c = Color(1, 1, 1), Color intens = Color(1.0f,1.0f,1.0f),
+			Vector _p0 = Vector(0, 0, 0), Vector _dv = Vector(0, 0, -1))
 	{
+		type = t;
+		color = c;
+		intensity = intens;
+		p0 = _p0;
+		dv = _dv.norm();
+	}
+
+	Color getColor(Vector at) const
+	{
+		if(type == AMBIENS)
+		{
+			return color;
+		}
+		Color ret = color*intensity;
+		ret = ret / (p0 - at).Length();
+		return ret;
+
 	}
 };
 
@@ -442,8 +459,7 @@ struct DiffuseMaterial: public Material
 //					Vector Hl = (V + Ll).norm();
 					float cost = Ll * inter.nv.norm();
 					retColor = retColor
-							+ (lights[i].color
-									* (1 / (inter.p0 - lights[i].p0).Length())
+							+ (lights[i].getColor(inter.p0)
 									* kd * MAX(cost, 0.0f));
 				}
 			}
@@ -809,18 +825,18 @@ Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(-1, 4, 3),
 Czermanik *metszoCzermanik = new Czermanik(&Zold,
 		Egyenes(Vector(0, 0, -2.2), Vector(0, 1, 0)),
 		Egyenes(Vector(0, 0, -2.2), Vector(0, 1, 0)), 1000);
-// TODO Camera a sík fölött, sík meg épphogy az alján metszi a nagy gömböt
+
 Camera camera(Vector(0, 1, 15), Vector(-1, 0.3, -0.1), Vector(0, 1, 0));
 
 LightSource ambient(LightSource::AMBIENS, Color(0.5f, 0.5f, 0.5f));
 
-LightSource lightP1(LightSource::PONT, Color(10.0f, 10.0f, 10.0f),
+LightSource lightP1(LightSource::PONT, Color(1.0f, 1.0f, 1.0f), Color(10,10,10),
 		Vector(1.4, 1, 0), Vector(0, -1, -0.2));
 
-LightSource lightP2(LightSource::PONT, Color(10.0f, 10.0f, 10.0f),
+LightSource lightP2(LightSource::PONT, Color(1.0f, 1.0f, 1.0f), Color(10,10,10),
 		Vector(-1.4, 1, -3), Vector(0.4, -1, 0.2));
 
-LightSource lightP3(LightSource::PONT, Color(30.0f, 20.0f, 10.0f),
+LightSource lightP3(LightSource::PONT, Color(1.0f, 1.0f, 1.0f), Color(30,20,10),
 		Vector(5, 5, 3), Vector(0, 2, 0));
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
@@ -925,21 +941,21 @@ void onKeyboard(unsigned char key, int x, int y)
 	case '1':
 		scene.lights[1].color =
 				scene.lights[1].color.r > 0 ?
-						Color(0, 0, 0) : Color(10, 10, 10);
+						Color(0, 0, 0) : Color(1, 1, 1);
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case '2':
 		scene.lights[2].color =
 				scene.lights[2].color.r > 0 ?
-						Color(0, 0, 0) : Color(10, 10, 10);
+						Color(0, 0, 0) : Color(1, 1, 1);
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case '3':
 		scene.lights[3].color =
 				scene.lights[3].color.r > 0 ?
-						Color(0, 0, 0) : Color(20, 20, 20);
+						Color(0, 0, 0) : Color(1, 1, 1);
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
@@ -958,14 +974,14 @@ void onKeyboard(unsigned char key, int x, int y)
 	case ',':
 		nagyUljanov->p1.y -= 1;
 		nagyUljanov->p2.y -= 1;
-		std::cout << nagyUljanov->p2.y << std::endl;
+		//std::cout << nagyUljanov->p2.y << std::endl;
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
 	case '.':
 		nagyUljanov->p1.y += 1;
 		nagyUljanov->p2.y += 1;
-		std::cout << nagyUljanov->p2.y << std::endl;
+		//std::cout << nagyUljanov->p2.y << std::endl;
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
