@@ -75,7 +75,7 @@ T MIN(T a, T b)
 
 float epsilon = 0.0000001;
 float dv_szorzo = 0.001;
-int DMAX = 10;
+int DMAX = 5;
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -527,7 +527,7 @@ struct Egyenes
 	Egyenes(Vector p = Vector(0, 0, 0), Vector d = Vector(0, 0, -1))
 	{
 		p0 = p;
-		dv = d.norm();
+		dv = d;	//.norm();
 	}
 };
 
@@ -655,8 +655,6 @@ struct Czermanik: public Object
 				+ 2 * l2 * (l2 * (z - z2) + n2 * (x2 - x))
 				+ 2 * m2 * (m2 * (z - z2) + n2 * (y - y2));
 
-//		return (p - e1.p0).norm();
-
 		return Vector(nx, ny, nz).norm();
 	}
 
@@ -703,56 +701,63 @@ struct Czermanik: public Object
 								+ f * f * m2 * m2 - 2.0f * e * f * m2 * n2
 								+ e * e * l2 * l2 + e * e * n2 * n2));
 
-		float b = (szorzo1 * 2.0f
-				* (d * l1 * m1 * (y1 - q) - d * l1 * n1 * r + d * l1 * n1 * z1
-						+ (d * m1 * m1 + d * n1 * n1) * (p - x1)
-						+ f * l1 * l1 * (r - z1) - f * l1 * n1 * p
-						+ f * l1 * n1 * x1 + f * m1 * m1 * z1 - f * m1 * n1 * q
-						+ f * m1 * n1 * y1 + e * l1 * l1 * (q - y1)
-						- e * l1 * m1 * p - e * m1 * n1 * r + e * m1 * n1 * z1
-						+ e * n1 * n1 * q - e * n1 * n1 * y1))
-				+ (szorzo2 * 2.0f
-						* (d * l2 * m2 * (y2 - q) - d * l2 * n2 * r
-								+ d * l2 * n2 * z2
-								+ (d * m2 * m2 + d * n2 * n2) * (p - x2)
-								+ f * l2 * l2 * (r - z2) - f * l2 * n2 * p
-								+ f * l2 * n2 * x2 + f * m2 * m2 * z2
-								- f * m2 * n2 * q + f * m2 * n2 * y2
-								+ e * l2 * l2 * (q - y2) - e * l2 * m2 * p
-								- e * m2 * n2 * r + e * m2 * n2 * z2
-								+ e * n2 * n2 * q - e * n2 * n2 * y2));
+		float b =
+				(szorzo1 * 2.0f
+						* (d * l1 * m1 * (y1 - q) - d * l1 * n1 * r
+								+ d * l1 * n1 * z1
+								+ (d * m1 * m1 + d * n1 * n1) * (p - x1)
+								+ f * l1 * l1 * (r - z1) - f * l1 * n1 * p
+								+ f * l1 * n1 * x1 + f * m1 * m1 * z1
+								- f * m1 * n1 * q + f * m1 * n1 * y1
+								+ e * l1 * l1 * (q - y1) - e * l1 * m1 * p
+								+ e * l1 * m1 * x1 - e * m1 * n1 * r
+								+ e * m1 * n1 * z1 + e * n1 * n1 * q
+								- e * n1 * n1 * y1))
+						+ (szorzo2 * 2.0f
+								* (d * l2 * m2 * (y2 - q) - d * l2 * n2 * r
+										+ d * l2 * n2 * z2
+										+ (d * m2 * m2 + d * n2 * n2) * (p - x2)
+										+ f * l2 * l2 * (r - z2)
+										- f * l2 * n2 * p + f * l2 * n2 * x2
+										+ f * m2 * m2 * z2 - f * m2 * n2 * q
+										+ f * m2 * n2 * y2
+										+ e * l2 * l2 * (q - y2)
+										- e * l2 * m2 * p + e * l2 * m2 * x2
+										- e * m2 * n2 * r + e * m2 * n2 * z2
+										+ e * n2 * n2 * q - e * n2 * n2 * y2));
 
 		float c = szorzo1
 				* (l1 * l1 * q * q - 2 * l1 * l1 * q * y1 + l1 * l1 * r * r
 						- 2 * l1 * l1 * r * z1 + l1 * l1 * y1 * y1
-						+ l1 * l1 * z1 * z1 - 2 * l1 * m1 * p * (q + y1)
-						+ 2 * l1 * m1 * q * x1 - 2 * l1 * m1 * x1 * y1
-						- 2 * l1 * n1 * p * r + 2 * l1 * n1 * p * z1 + 2 * l1
-						- n1 * r * x1 - 2 * l1 * n1 * x1 * z1 + m1 * m1 * p * p
+						+ l1 * l1 * z1 * z1 - 2 * l1 * m1 * p * q
+						+ 2 * l1 * m1 * p * y1 + 2 * l1 * m1 * q * x1
+						- 2 * l1 * m1 * x1 * y1 - 2 * l1 * n1 * p * r
+						+ 2 * l1 * n1 * p * z1 + 2 * l1 * n1 * r * x1
+						- 2 * l1 * n1 * x1 * z1 + m1 * m1 * p * p
 						- 2 * m1 * m1 * p * x1 + m1 * m1 * r * r
-						- 2 * m1 * m1 * r * z1 + m1 - m1 * x1 * x1
+						- 2 * m1 * m1 * r * z1 + m1 * m1 * x1 * x1
 						+ m1 * m1 * z1 * z1 - 2 * m1 * n1 * q * r
 						+ 2 * m1 * n1 * q * z1 + 2 * m1 * n1 * r * y1
 						- 2 * m1 * n1 * y1 * z1 + n1 * n1 * p * p
 						- 2 * n1 * n1 * p * x1 + n1 * n1 * q * q
 						- 2 * n1 * n1 * q * y1 + n1 * n1 * x1 * x1
-						+ n1 * n1 * y1 * y1 - k)
+						+ n1 * n1 * y1 * y1)
 				+ szorzo2
-						* (l2 * l2 * q * q - 2 * l2 * l2 * q * y2
-								+ l2 * l2 * r * r - 2 * l2 * l2 * r * z2
-								+ l2 * l2 * y2 * y2 + l2 * l2 * z2 * z2
-								- 2 * l2 * m2 * p * (q + y2)
-								+ 2 * l2 * m2 * q * x2 - 2 * l2 * m2 * x2 * y2
-								- 2 * l2 * n2 * p * r + 2 * l2 * n2 * p * z2
-								+ 2 * l2 - n2 * r * x2 - 2 * l2 * n2 * x2 * z2
-								+ m2 * m2 * p * p - 2 * m2 * m2 * p * x2
-								+ m2 * m2 * r * r - 2 * m2 * m2 * r * z2 + m2
-								- m2 * x2 * x2 + m2 * m2 * z2 * z2
-								- 2 * m2 * n2 * q * r + 2 * m2 * n2 * q * z2
-								+ 2 * m2 * n2 * r * y2 - 2 * m2 * n2 * y2 * z2
-								+ n2 * n2 * p * p - 2 * n2 * n2 * p * x2
-								+ n2 * n2 * q * q - 2 * n2 * n2 * q * y2
-								+ n2 * n2 * x2 * x2 + n2 * n2 * y2 * y2 - k);
+						* (l2 * l2 * q * q - 2 * l2 * l2 * q * y2 + l2 * l2 * r * r
+								- 2 * l2 * l2 * r * z2 + l2 * l2 * y2 * y2
+								+ l2 * l2 * z2 * z2 - 2 * l2 * m2 * p * q
+								+ 2 * l2 * m2 * p * y2 + 2 * l2 * m2 * q * x2
+								- 2 * l2 * m2 * x2 * y2 - 2 * l2 * n2 * p * r
+								+ 2 * l2 * n2 * p * z2 + 2 * l2 * n2 * r * x2
+								- 2 * l2 * n2 * x2 * z2 + m2 * m2 * p * p
+								- 2 * m2 * m2 * p * x2 + m2 * m2 * r * r
+								- 2 * m2 * m2 * r * z2 + m2 * m2 * x2 * x2
+								+ m2 * m2 * z2 * z2 - 2 * m2 * n2 * q * r
+								+ 2 * m2 * n2 * q * z2 + 2 * m2 * n2 * r * y2
+								- 2 * m2 * n2 * y2 * z2 + n2 * n2 * p * p
+								- 2 * n2 * n2 * p * x2 + n2 * n2 * q * q
+								- 2 * n2 * n2 * q * y2 + n2 * n2 * x2 * x2
+								+ n2 * n2 * y2 * y2) - k;
 		// MAGIC ENDS HERE
 
 		float discrmin = b * b - 4 * a * c;
@@ -861,9 +866,6 @@ ReflectiveMaterial Ezust(Color(0.14, 0.16, 0.13), Color(4.1, 2.3, 3.1));
 RefractiveMaterial Uveg(1.5, 0);
 
 DiffuseMaterial Zold(Color(0.1, 0.4, 0.05));
-DiffuseMaterial VilagosZold(Color(0.1, 0.15, 0.1));
-DiffuseMaterial Feher(Color(0.8, 0.8, 0.8));
-DiffuseMaterial Fekete(Color(0.1, 0.1, 0.1));
 
 Floor *diffuseFloor = new Floor(&Zold, Vector(0, 0.5, 0), Vector(0, 1, 0));
 
@@ -877,12 +879,12 @@ Uljanov *nagyUljanov = new Uljanov(&Arany, Vector(-1, 4, 60), Vector(-1, 4, 60),
 		7800);
 
 Czermanik *metszoCzermanik = new Czermanik(&Uveg,
-		Egyenes(Vector(0, 1, 0), Vector(0, -1, 1)),
-		Egyenes(Vector(0, 1, 2), Vector(-1, 0, 0)), 1);
+		Egyenes(Vector(0, 1, -1.5), Vector(1, 1, 0)),
+		Egyenes(Vector(0, 1, -1.5), Vector(1, 0, 0)), 0.0005);
 
 Czermanik *kiteroCzermanik = new Czermanik(&Uveg,
-		Egyenes(Vector(0, 1, -10), Vector(0, 1, 0)),
-		Egyenes(Vector(0, 1, -30), Vector(-1, 0, 0)), 1);
+		Egyenes(Vector(0, 1, -1), Vector(0, 1, 0)),
+		Egyenes(Vector(0, 1, -1), Vector(1, 0, 0)), 1);
 
 Camera camera(Vector(-1, 5, 19), Vector(-1.2, 0.3, 1), Vector(0, 1, 0));
 
@@ -902,9 +904,9 @@ void onInitialization()
 
 	scene.addObject(diffuseFloor);
 	scene.addObject(kisUljanov);
-//	scene.addObject(uvegUljanov);
+	scene.addObject(uvegUljanov);
 	scene.addObject(metszoCzermanik);
-//	scene.addObject(kiteroCzermanik);
+	scene.addObject(kiteroCzermanik);
 	scene.addObject(nagyUljanov);
 	scene.addLight(lightP1);
 	scene.addLight(lightP2);
@@ -932,17 +934,13 @@ void onKeyboard(unsigned char key, int x, int y)
 	static bool up = true;
 	switch (key)
 	{
-	case 'l':
-		if (up)
-		{
-			scene.lights[scene.numLights - 1].color = Color(0, 0, 0);
-			up = false;
-		}
-		else
-		{
-			scene.lights[scene.numLights - 1].color = Color(1, 1, 1);
-			up = true;
-		}
+	case 'u':
+		metszoCzermanik->k *= 2;
+		camera.takePicture();
+		glutPostRedisplay();
+		break;
+	case 'z':
+		metszoCzermanik->k /= 2;
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
@@ -1074,12 +1072,6 @@ void onKeyboard(unsigned char key, int x, int y)
 		break;
 	case 'p':
 		dv_szorzo *= 10;
-		camera.takePicture();
-		glutPostRedisplay();
-		break;
-	case 'z':
-		camera.lookat.z += 2;
-		camera.right = ((camera.lookat - camera.eye) % camera.up).norm();
 		camera.takePicture();
 		glutPostRedisplay();
 		break;
