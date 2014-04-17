@@ -192,6 +192,7 @@ struct Camera
 		glLoadIdentity();
 		gluLookAt(eye.x, eye.y, eye.z, lookat.x, lookat.y, lookat.z, vup.x,
 				vup.y, vup.z);
+		glRotatef(FOK, 0, 1, 0);
 	}
 };
 
@@ -199,31 +200,202 @@ struct Light
 {
 	GLenum id;
 	Vector pos;
-	float Id[4];
-	float Ia[4];
-	float Is[4];
+	Color Id;
+	Color Ia;
+	Color Is;
+
+	Light(GLenum ID, Vector position, Color _Id, Color _Ia, Color _Is)
+	{
+		id = ID;
+		pos = position;
+		Id = _Id;
+		Ia = _Ia;
+		Is = _Is;
+		glEnable(id);
+
+		setOGL();
+	}
 
 	void setOGL()
 	{
+		float p[4] =
+		{ pos.x, pos.y, pos.z, 1 };
+		glLightfv(id, GL_POSITION, p);
+		glLightfv(id, GL_DIFFUSE, (float*) &Id);
+		glLightfv(id, GL_AMBIENT, (float*) &Ia);
+		glLightfv(id, GL_SPECULAR, (float*) &Is);
 
+		glLightf(id, GL_CONSTANT_ATTENUATION, 0.0f);
+		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.9f);
 	}
 };
 
 struct Henger: public Object
 {
 	float r;
+	float h;
+	float rings;
+	float sides;
+
+	Henger(float radius, float height, float numRings, float numSides)
+	{
+		r = radius;
+		h = height;
+		rings = numRings;
+		sides = numSides;
+	}
+
+	float x(float u, float v)
+	{
+		return r * cos(2 * M_PI * u);
+	}
+
+	float y(float u, float v)
+	{
+		return r * sin(2 * M_PI * u);
+	}
+
+	float z(float u, float v)
+	{
+		return -h * v;
+	}
+
+	float xdu(float u, float v)
+	{
+		return (-1.0f) * r * sin(2 * M_PI * u);
+	}
+
+	float ydu(float u, float v)
+	{
+		return r * cos(2 * M_PI * u);
+	}
+
+	float zdu(float u, float v)
+	{
+		return 0;
+	}
+
+	float xdv(float u, float v)
+	{
+		return 0;
+	}
+
+	float ydv(float u, float v)
+	{
+		return 0;
+	}
+
+	float zdv(float u, float v)
+	{
+		return -h;
+	}
+
+	void draw()
+	{
+		float u_step = 1.0f / sides;
+		float v_step = (h / rings);
+
+		glBegin(GL_TRIANGLES);
+		for (float f = 0; f < 2 * M_PI; f += v_step * 2 * M_PI)
+		{
+			glNormal3f(0, 0, 1);
+			glVertex3f(0, 0, 0);
+			glVertex3f(cos(f) * r, sin(f) * r, 0);
+			glVertex3f(cos(f + v_step * 2 * M_PI) * r,
+					sin(f + v_step * 2 * M_PI) * r, 0);
+		}
+		glEnd();
+
+		glBegin(GL_TRIANGLES);
+		for (float f = 0; f < 2 * M_PI; f += v_step * 2 * M_PI)
+		{
+			glNormal3f(0, 0, -1);
+			glVertex3f(0, 0, -h);
+			glVertex3f(cos(f) * r, sin(f) * r, -h);
+			glVertex3f(cos(f + v_step * 2 * M_PI) * r,
+					sin(f + v_step * 2 * M_PI) * r, -h);
+		}
+		glEnd();
+
+		for (float u = 0; u < 1; u += u_step)
+		{
+			for (float v = 0; v < 1; v += v_step)
+			{
+				glBegin(GL_TRIANGLES);
+
+				float x1 = x(u, v);
+				float y1 = y(u, v);
+				float z1 = z(u, v);
+				float x1du = xdu(u, v);
+				float y1du = ydu(u, v);
+				float z1du = zdu(u, v);
+				float x1dv = xdv(u, v);
+				float y1dv = ydv(u, v);
+				float z1dv = zdv(u, v);
+				Vector n1 = Vector(x1dv, y1dv, z1dv) % Vector(x1du, y1du, z1du);
+
+				float x2 = x(u + u_step, v);
+				float y2 = y(u + u_step, v);
+				float z2 = z(u + u_step, v);
+				float x2du = xdu(u + u_step, v);
+				float y2du = ydu(u + u_step, v);
+				float z2du = zdu(u + u_step, v);
+				float x2dv = xdv(u + u_step, v);
+				float y2dv = ydv(u + u_step, v);
+				float z2dv = zdv(u + u_step, v);
+				Vector n2 = Vector(x2dv, y2dv, z2dv) % Vector(x2du, y2du, z2du);
+
+				float x3 = x(u + u_step, v + v_step);
+				float y3 = y(u + u_step, v + v_step);
+				float z3 = z(u + u_step, v + v_step);
+				float x3du = xdu(u + u_step, v + v_step);
+				float y3du = ydu(u + u_step, v + v_step);
+				float z3du = zdu(u + u_step, v + v_step);
+				float x3dv = xdv(u + u_step, v + v_step);
+				float y3dv = ydv(u + u_step, v + v_step);
+				float z3dv = zdv(u + u_step, v + v_step);
+				Vector n3 = Vector(x3dv, y3dv, z3dv) % Vector(x3du, y3du, z3du);
+
+				float x4 = x(u, v + v_step);
+				float y4 = y(u, v + v_step);
+				float z4 = z(u, v + v_step);
+				float x4du = xdu(u, v + v_step);
+				float y4du = ydu(u, v + v_step);
+				float z4du = zdu(u, v + v_step);
+				float x4dv = xdv(u, v + v_step);
+				float y4dv = ydv(u, v + v_step);
+				float z4dv = zdv(u, v + v_step);
+				Vector n4 = Vector(x4dv, y4dv, z4dv) % Vector(x4du, y4du, z4du);
+
+				glNormal3f(n1.x, n1.y, n1.z);
+				glVertex3f(x1, y1, z1);
+				glNormal3f(n2.x, n2.y, n2.z);
+				glVertex3f(x2, y2, z2);
+				glNormal3f(n3.x, n3.y, n3.z);
+				glVertex3f(x3, y3, z3);
+
+				glNormal3f(n1.x, n1.y, n1.z);
+				glVertex3f(x1, y1, z1);
+				glNormal3f(n3.x, n3.y, n3.z);
+				glVertex3f(x3, y3, z3);
+				glNormal3f(n4.x, n4.y, n4.z);
+				glVertex3f(x4, y4, z4);
+
+				glEnd();
+			}
+		}
+	}
 
 };
 
 struct Torus: public Object
 {
-	// A külső sugár
 	float outR;
-	// A körök sugara
+
 	float inR;
-	// Tesszaláció során egy-egy henger "oldalszáma"
+
 	float sides;
-	// Tesszaláció során hány hengerre osszuk fel
+
 	float rings;
 
 	Torus(float innerRadius, float outerRadius, float numSides, float numRings)
@@ -234,89 +406,168 @@ struct Torus: public Object
 		rings = numRings;
 	}
 
-	float x(float phi, float theta)
+	float x(float u, float v)
 	{
-		return (outR + inR * cos(phi)) * cos(theta);
+		return (outR + inR * cos(2 * M_PI * u)) * cos(2 * M_PI * v);
 	}
 
-	float y(float phi, float theta)
+	float y(float u, float v)
 	{
-		return (outR + inR * cos(phi)) * sin(theta);
+		return (outR + inR * cos(2 * M_PI * u)) * sin(2 * M_PI * v);
 	}
 
-	float z(float phi, float theta)
+	float z(float u, float v)
 	{
-		return inR * sin(phi);
+		return inR * sin(2 * M_PI * u);
 	}
 
-	float xdx(float phi, float theta)
+	float xdu(float u, float v)
 	{
-		return inR * (cos(phi) * sin(theta) - sin(phi) * cos(theta));
+		return (-1.0f) * sin(2 * M_PI * u) * cos(2 * M_PI * v);
 	}
 
-	float ydy(float phi, float theta)
+	float ydu(float u, float v)
 	{
-		return inR * (cos(theta) * cos(phi) - sin(phi) * cos(theta));
+		return (-1.0f) * sin(2 * M_PI * u) * sin(2 * M_PI * v);
 	}
 
-	float zdz(float phi, float theta)
+	float zdu(float u, float v)
 	{
-		return cos(phi) * inR;
+		return cos(2 * M_PI * u);
+	}
+
+	float xdv(float u, float v)
+	{
+		return (-1.0f) * sin(2 * M_PI * v);
+	}
+
+	float ydv(float u, float v)
+	{
+		return cos(2 * M_PI * v);
+	}
+
+	float zdv(float u, float v)
+	{
+		return 0;
 	}
 
 	void draw()
 	{
-		float phi_step = (2 * M_PI / rings);
-		float theta_step = (2 * M_PI / sides);
+		float u_step = (1.0f / sides);
+		float v_step = (1.0f / rings);
 
-//		glTranslatef(0, 0, -1);
-		glRotatef(FOK, 0, 1, 0);
+//		glRotatef(FOK, 0, 1, 0);
 
-//		glutSolidTorus(inR,outR,sides,rings);
-//		return;
-		glBegin(GL_QUADS);
-		for (float phi = 0; phi <= 2 * M_PI; phi += phi_step)
+		for (float u = 0; u < 1; u += u_step)
 		{
-			for (float theta = 0; theta <= 2 * M_PI; theta += theta_step)
+			for (float v = 0; v < 1; v += v_step)
 			{
-				float x1 = x(phi, theta);
-				float y1 = y(phi, theta);
-				float z1 = z(phi, theta);
-				float x1dx = xdx(phi, theta);
-				float y1dy = ydy(phi, theta);
-				float z1dz = zdz(phi, theta);
-				glNormal3f(x1dx, y1dy, z1dz);
+				glBegin(GL_TRIANGLES);
+
+				float x1 = x(u, v);
+				float y1 = y(u, v);
+				float z1 = z(u, v);
+				float x1du = xdu(u, v);
+				float y1du = ydu(u, v);
+				float z1du = zdu(u, v);
+				float x1dv = xdv(u, v);
+				float y1dv = ydv(u, v);
+				float z1dv = zdv(u, v);
+				Vector n1 = Vector(x1dv, y1dv, z1dv) % Vector(x1du, y1du, z1du);
+
+				float x2 = x(u + u_step, v);
+				float y2 = y(u + u_step, v);
+				float z2 = z(u + u_step, v);
+				float x2du = xdu(u + u_step, v);
+				float y2du = ydu(u + u_step, v);
+				float z2du = zdu(u + u_step, v);
+				float x2dv = xdv(u + u_step, v);
+				float y2dv = ydv(u + u_step, v);
+				float z2dv = zdv(u + u_step, v);
+				Vector n2 = Vector(x2dv, y2dv, z2dv) % Vector(x2du, y2du, z2du);
+
+				float x3 = x(u + u_step, v + v_step);
+				float y3 = y(u + u_step, v + v_step);
+				float z3 = z(u + u_step, v + v_step);
+				float x3du = xdu(u + u_step, v + v_step);
+				float y3du = ydu(u + u_step, v + v_step);
+				float z3du = zdu(u + u_step, v + v_step);
+				float x3dv = xdv(u + u_step, v + v_step);
+				float y3dv = ydv(u + u_step, v + v_step);
+				float z3dv = zdv(u + u_step, v + v_step);
+				Vector n3 = Vector(x3dv, y3dv, z3dv) % Vector(x3du, y3du, z3du);
+
+				float x4 = x(u, v + v_step);
+				float y4 = y(u, v + v_step);
+				float z4 = z(u, v + v_step);
+				float x4du = xdu(u, v + v_step);
+				float y4du = ydu(u, v + v_step);
+				float z4du = zdu(u, v + v_step);
+				float x4dv = xdv(u, v + v_step);
+				float y4dv = ydv(u, v + v_step);
+				float z4dv = zdv(u, v + v_step);
+				Vector n4 = Vector(x4dv, y4dv, z4dv) % Vector(x4du, y4du, z4du);
+
+				glNormal3f(n1.x, n1.y, n1.z);
 				glVertex3f(x1, y1, z1);
-
-				float x2 = x(phi + phi_step, theta);
-				float y2 = y(phi + phi_step, theta);
-				float z2 = z(phi + phi_step, theta);
-				float x2dx = xdx(phi + phi_step, theta);
-				float y2dy = ydy(phi + phi_step, theta);
-				float z2dz = zdz(phi + phi_step, theta);
-				glNormal3f(x2dx, y2dy, z2dz);
+				glNormal3f(n2.x, n2.y, n2.z);
 				glVertex3f(x2, y2, z2);
-
-				float x3 = x(phi + phi_step, theta + theta_step);
-				float y3 = y(phi + phi_step, theta + theta_step);
-				float z3 = z(phi + phi_step, theta + theta_step);
-				float x3dx = xdx(phi + phi_step, theta + theta_step);
-				float y3dy = ydy(phi + phi_step, theta + theta_step);
-				float z3dz = zdz(phi + phi_step, theta + theta_step);
-				glNormal3f(x3dx, y3dy, z3dz);
+				glNormal3f(n3.x, n3.y, n3.z);
 				glVertex3f(x3, y3, z3);
 
-				float x4 = x(phi, theta + theta_step);
-				float y4 = y(phi, theta + theta_step);
-				float z4 = z(phi, theta + theta_step);
-				float x4dx = xdx(phi, theta + theta_step);
-				float y4dy = ydy(phi, theta + theta_step);
-				float z4dz = zdz(phi, theta + theta_step);
-				glNormal3f(x4dx, y4dy, z4dz);
+				glNormal3f(n1.x, n1.y, n1.z);
+				glVertex3f(x1, y1, z1);
+				glNormal3f(n3.x, n3.y, n3.z);
+				glVertex3f(x3, y3, z3);
+				glNormal3f(n4.x, n4.y, n4.z);
 				glVertex3f(x4, y4, z4);
+
+				glEnd();
+
 			}
 		}
-		glEnd();
+	}
+};
+
+struct Kerek: public Object
+{
+	Torus *gumi;
+	Henger **kullok;
+	int kulloszam;
+};
+
+struct BringaVaz: public Object
+{
+
+};
+
+struct Kormanymu: public Object
+{
+	Kerek *kerek;
+	Henger *balvilla;
+	Henger *jobbvilla;
+	Henger *villateteje;
+	Henger *villanyak;
+	Henger *stucni;
+	Henger *kormany;
+
+};
+
+struct Ember: public Object
+{
+
+};
+
+struct Bringa: public Object
+{
+	Kerek *hatsokerek;
+	Kormanymu *kormany;
+	Ember *rider;
+	BringaVaz *vaz;
+
+	void draw()
+	{
+
 	}
 };
 
@@ -358,8 +609,18 @@ struct Scene
 	{
 		camera = new Camera(Vector(0, 0, 1.5), Vector(0, 0, 0), Vector(0, 1, 0),
 				90.0f, 1.0f, 0.1f, 10.0f);
-		Torus *t = new Torus(0.6, 1.1, 50, 50);
+		Torus *t = new Torus(0.1, 0.5, 80, 80);
 		objects[numObjects++] = t;
+
+		Henger * h = new Henger(0.1, 1.2, 20, 20);
+		objects[numObjects++] = h;
+
+		Color diffuse(1, 1, 1);
+		Color ambient(0.2, 0.2, 0.2);
+		Color specular(1, 1, 1);
+		Light *l0 = new Light(GL_LIGHT0, Vector(0, 0, 2), diffuse, ambient,
+				specular);
+		lights[numLights++] = l0;
 	}
 
 	void render()
@@ -373,6 +634,12 @@ struct Scene
 		{
 			objects[i]->draw();
 		}
+		Torus t(0.05, 0.1, 30, 30);
+		glPushMatrix();
+//		glLoadIdentity();
+		glTranslatef(lights[0]->pos.x, lights[0]->pos.y, lights[0]->pos.z);
+		t.draw();
+		glPopMatrix();
 	}
 };
 
@@ -385,30 +652,17 @@ void onInitialization()
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_NORMALIZE);
-	scene.build();
-
 	glEnable(GL_LIGHTING);
-
-	glEnable(GL_LIGHT0);
-	float p[4] =
-	{ 0.0f, 0.0f, 0.0f, 1 };
-	glLightfv(GL_LIGHT0, GL_POSITION, p);
-	float c[4] =
-	{ 0.0f, 1.0f, 1.0f, 1.0f };
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, c);
-	glEnable(GL_COLOR_MATERIAL);
 	glShadeModel(GL_SMOOTH);
+//	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
-	glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.9f);
-
+	scene.build();
 }
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
-
-	// ..
+// ..
 	scene.render();
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -466,7 +720,10 @@ void onMouseMotion(int x, int y)
 void onIdle()
 {
 	long time = glutGet(GLUT_ELAPSED_TIME);	// program inditasa ota eltelt ido
-//	FOK = fmod(time / 10, 360.0f);
+//	FOK = fmod(time / 25, 360.0f);
+	scene.lights[0]->pos.x = cos(fmod((time / 10) * 0.01, 360.0f));
+//	scene.lights[0]->pos.y = 2 * cos(fmod((time / 10) * 0.01, 360.0f)) * sin(fmod((time / 10) * 0.05, 360.0f));
+	scene.lights[0]->pos.z = sin(fmod((time / 10) * 0.01, 360.0f));
 	glutPostRedisplay();
 
 }
