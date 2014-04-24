@@ -62,6 +62,19 @@
 // Innentol modosithatod...
 
 float FOK = 0;
+bool draw_normals = false;
+
+template<typename T>
+T MAX(T a, T b)
+{
+	return (a > b ? a : b);
+}
+
+template<typename T>
+T MIN(T a, T b)
+{
+	return (a < b ? a : b);
+}
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -152,6 +165,96 @@ struct Color
 	}
 };
 
+enum MATERIAL
+{
+	PIROS, ZOLD, KEK, EZUST, FEKETE
+};
+
+void setMaterial(MATERIAL m)
+{
+	switch (m)
+	{
+	case PIROS:
+	{
+		float a[4] =
+		{ 1, 0, 0, 1 };
+		float d[4] =
+		{ 1, 0, 0, 1 };
+		float sp[4] =
+		{ 1, 1, 1, 1 };
+		float sh = 100;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+	}
+	case ZOLD:
+	{
+		float a[4] =
+		{ 0, 1, 0, 1 };
+		float d[4] =
+		{ 0, 1, 0, 1 };
+		float sp[4] =
+		{ 1, 1, 1, 1 };
+		float sh = 128;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+	}
+	case KEK:
+	{
+		float a[4] =
+		{ 0, 0, 1, 1 };
+		float d[4] =
+		{ 0, 0, 1, 1 };
+		float sp[4] =
+		{ 1, 1, 1, 1 };
+		float sh = 100;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+	}
+		// http://www.it.hiof.no/~borres/j3d/explain/light/p-materials.html
+	case EZUST:
+	{
+		float a[4] =
+		{ 0.23125f, 0.23125f, 0.23125f, 1.0f };
+		float d[4] =
+		{ 0.2775f, 0.2775f, 0.2775f, 1.0f };
+		float sp[4] =
+		{ 0.773911f, 0.773911f, 0.773911f, 1.0f };
+		float sh = 89.6f;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+	}
+	case FEKETE:
+	{
+		float a[4] =
+		{ 0, 0, 0, 1 };
+		float d[4] =
+		{ 0.01, 0.01, 0.01, 1 };
+		float sp[4] =
+		{ 0.2, 0.2, 0.2, 1 };
+		float sh = 128;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 struct Object
 {
 	virtual float x(float u, float v)
@@ -220,46 +323,37 @@ struct Object
 				float z1dv = zdv(u, v);
 				Vector n1 = Vector(x1dv, y1dv, z1dv) % Vector(x1du, y1du, z1du);
 
-				float x2 = x(u + u_step > 1 ? 1 : u + u_step, v);
-				float y2 = y(u + u_step > 1 ? 1 : u + u_step, v);
-				float z2 = z(u + u_step > 1 ? 1 : u + u_step, v);
-				float x2du = xdu(u + u_step > 1 ? 1 : u + u_step, v);
-				float y2du = ydu(u + u_step > 1 ? 1 : u + u_step, v);
-				float z2du = zdu(u + u_step > 1 ? 1 : u + u_step, v);
-				float x2dv = xdv(u + u_step > 1 ? 1 : u + u_step, v);
-				float y2dv = ydv(u + u_step > 1 ? 1 : u + u_step, v);
-				float z2dv = zdv(u + u_step > 1 ? 1 : u + u_step, v);
+				float x2 = x(MIN(u + u_step, 1.0f), v);
+				float y2 = y(MIN(u + u_step, 1.0f), v);
+				float z2 = z(MIN(u + u_step, 1.0f), v);
+				float x2du = xdu(MIN(u + u_step, 1.0f), v);
+				float y2du = ydu(MIN(u + u_step, 1.0f), v);
+				float z2du = zdu(MIN(u + u_step, 1.0f), v);
+				float x2dv = xdv(MIN(u + u_step, 1.0f), v);
+				float y2dv = ydv(MIN(u + u_step, 1.0f), v);
+				float z2dv = zdv(MIN(u + u_step, 1.0f), v);
 				Vector n2 = Vector(x2dv, y2dv, z2dv) % Vector(x2du, y2du, z2du);
 
-				float x3 = x(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float y3 = y(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float z3 = z(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float x3du = xdu(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float y3du = ydu(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float z3du = zdu(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float x3dv = xdv(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float y3dv = ydv(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
-				float z3dv = zdv(u + u_step > 1 ? 1 : u + u_step,
-						v + v_step > 1 ? 1 : v + v_step);
+				float x3 = x(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float y3 = y(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float z3 = z(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float x3du = xdu(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float y3du = ydu(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float z3du = zdu(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float x3dv = xdv(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float y3dv = ydv(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				float z3dv = zdv(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
 				Vector n3 = Vector(x3dv, y3dv, z3dv) % Vector(x3du, y3du, z3du);
 
-				float x4 = x(u, v + v_step > 1 ? 1 : v + v_step);
-				float y4 = y(u, v + v_step > 1 ? 1 : v + v_step);
-				float z4 = z(u, v + v_step > 1 ? 1 : v + v_step);
-				float x4du = xdu(u, v + v_step > 1 ? 1 : v + v_step);
-				float y4du = ydu(u, v + v_step > 1 ? 1 : v + v_step);
-				float z4du = zdu(u, v + v_step > 1 ? 1 : v + v_step);
-				float x4dv = xdv(u, v + v_step > 1 ? 1 : v + v_step);
-				float y4dv = ydv(u, v + v_step > 1 ? 1 : v + v_step);
-				float z4dv = zdv(u, v + v_step > 1 ? 1 : v + v_step);
+				float x4 = x(u, MIN(v + v_step, 1.0f));
+				float y4 = y(u, MIN(v + v_step, 1.0f));
+				float z4 = z(u, MIN(v + v_step, 1.0f));
+				float x4du = xdu(u, MIN(v + v_step, 1.0f));
+				float y4du = ydu(u, MIN(v + v_step, 1.0f));
+				float z4du = zdu(u, MIN(v + v_step, 1.0f));
+				float x4dv = xdv(u, MIN(v + v_step, 1.0f));
+				float y4dv = ydv(u, MIN(v + v_step, 1.0f));
+				float z4dv = zdv(u, MIN(v + v_step, 1.0f));
 				Vector n4 = Vector(x4dv, y4dv, z4dv) % Vector(x4du, y4du, z4du);
 
 				glNormal3f(n1.x, n1.y, n1.z);
@@ -277,6 +371,24 @@ struct Object
 				glVertex3f(x4, y4, z4);
 
 				glEnd();
+
+				if (draw_normals)
+				{
+					glBegin(GL_LINES);
+					glVertex3f(x1, y1, z1);
+					glVertex3f(x1 + 0.1f * n1.norm().x, y1 + 0.1f * n1.norm().y,
+							z1 + 0.1f * n1.norm().z);
+					glVertex3f(x2, y2, z2);
+					glVertex3f(x2 + 0.1f * n2.norm().x, y2 + 0.1f * n2.norm().y,
+							z2 + 0.1f * n2.norm().z);
+					glVertex3f(x3, y3, z3);
+					glVertex3f(x3 + 0.1f * n3.norm().x, y3 + 0.1f * n3.norm().y,
+							z3 + 0.1f * n3.norm().z);
+					glVertex3f(x4, y4, z4);
+					glVertex3f(x4 + 0.1f * n4.norm().x, y4 + 0.1f * n4.norm().y,
+							z4 + 0.1f * n4.norm().z);
+					glEnd();
+				}
 
 			}
 		}
@@ -352,12 +464,14 @@ struct Light
 		glLightfv(id, GL_SPECULAR, (float*) &Is);
 
 		glLightf(id, GL_CONSTANT_ATTENUATION, 0.0f);
-		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.9f);
+		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.8f);
 	}
 };
 
 struct Ellipszoid: public Object
 {
+	Vector p0;
+
 	float a;
 	float b;
 	float c;
@@ -365,8 +479,10 @@ struct Ellipszoid: public Object
 	int sides;
 	int rings;
 
-	Ellipszoid(float _a, float _b, float _c, float numSides, float numRings)
+	Ellipszoid(Vector p, float _a, float _b, float _c, float numSides,
+			float numRings)
 	{
+		p0 = p;
 		a = _a;
 		b = _b;
 		c = _c;
@@ -376,17 +492,17 @@ struct Ellipszoid: public Object
 
 	float x(float u, float v)
 	{
-		return a * sin(2 * M_PI * u) * cos(2 * M_PI * v);
+		return p0.x + a * sin(2 * M_PI * u) * cos(2 * M_PI * v);
 	}
 
 	float y(float u, float v)
 	{
-		return b * sin(2 * M_PI * u) * sin(2 * M_PI * v);
+		return p0.y + b * sin(2 * M_PI * u) * sin(2 * M_PI * v);
 	}
 
 	float z(float u, float v)
 	{
-		return c * cos(2 * M_PI * u);
+		return p0.z + c * cos(2 * M_PI * u);
 	}
 
 	float xdu(float u, float v)
@@ -568,16 +684,16 @@ struct Henger: public Object
 			glNormal3f(0, 0, 1);
 			glVertex3f(0, 0, 0);
 			glVertex3f(x(u, 0), y(u, 0), z(u, 0));
-			glVertex3f(x(u + u_step > 1 ? 1 : u + u_step, 0),
-					y(u + u_step > 1 ? 1 : u + u_step, 0), z(u, 0));
+			glVertex3f(x(MIN(u + u_step, 1.0f), 0), y(MIN(u + u_step, 1.0f), 0),
+					z(u, 0));
 			glEnd();
 
 			glBegin(GL_TRIANGLES);
 			glNormal3f(0, 0, -1);
 			glVertex3f(0, 0, z(u, 1));
 			glVertex3f(x(u, 1), y(u, 1), z(u, 1));
-			glVertex3f(x(u + u_step > 1 ? 1 : u + u_step, 1),
-					y(u + u_step > 1 ? 1 : u + u_step, 1), z(u, 1));
+			glVertex3f(x(MIN(u + u_step, 1.0f), 1), y(MIN(u + u_step, 1.0f), 1),
+					z(u, 1));
 			glEnd();
 		}
 	}
@@ -591,14 +707,16 @@ struct UjHenger: public Object
 	Vector d;
 	Vector dnorm;
 	float r;
+	int sides;
 
-	UjHenger(Vector p, Vector q, float rad)
+	UjHenger(Vector p, Vector q, float rad, int numSides)
 	{
 		p0 = p;
 		p1 = q;
 		d = (p - q);
 		dnorm = d.norm();
 		r = rad;
+		sides = numSides;
 	}
 
 	float x(float u, float v)
@@ -613,17 +731,17 @@ struct UjHenger: public Object
 
 	float z(float u, float v)
 	{
-		return d.z * v;
+		return p0.z;
 	}
 
 	float xdu(float u, float v)
 	{
-		return 0;
+		return (-1.0f) * r * sin(2 * M_PI * u);
 	}
 
 	float ydu(float u, float v)
 	{
-		return 0;
+		return r * cos(2 * M_PI * u);
 	}
 
 	float zdu(float u, float v)
@@ -633,18 +751,143 @@ struct UjHenger: public Object
 
 	float xdv(float u, float v)
 	{
-		return 0;
+		return d.x;
 	}
 
 	float ydv(float u, float v)
 	{
-		return 0;
-	}
-	float zdv(float u, float v)
-	{
-		return 0;
+		return d.y;
 	}
 
+	float zdv(float u, float v)
+	{
+		return d.z;
+	}
+
+	void draw()
+	{
+		float u_step = 1.0f / sides;
+		float v_step = 0.5f;
+
+		doDraw(u_step, v_step);
+	}
+
+};
+
+struct Teglalap: public Object
+{
+	Vector p0;
+	Vector p1;
+	Vector p2;
+	Vector p3;
+	int res;
+
+	Teglalap(Vector a, Vector b, Vector c, Vector d, int resolution)
+	{
+		p0 = a;
+		p1 = b;
+		p2 = c;
+		p3 = d;
+		res = resolution;
+	}
+
+	float x(float u, float v)
+	{
+		return p0.x + u * (p1 - p0).x + v * (p3 - p0).x;
+	}
+
+	float y(float u, float v)
+	{
+		return p0.y + u * (p1 - p0).y + v * (p3 - p0).y;
+	}
+
+	float z(float u, float v)
+	{
+		return p0.z + u * (p1 - p0).z + v * (p3 - p0).z;
+	}
+
+	float xdu(float u, float v)
+	{
+		return (p1 - p0).x;
+	}
+
+	float ydu(float u, float v)
+	{
+		return (p1 - p0).y;
+	}
+
+	float zdu(float u, float v)
+	{
+		return (p1 - p0).z;
+	}
+
+	float xdv(float u, float v)
+	{
+		return (p3 - p0).x;
+	}
+
+	float ydv(float u, float v)
+	{
+		return (p3 - p0).y;
+	}
+
+	float zdv(float u, float v)
+	{
+		return (p3 - p0).z;
+	}
+
+	void draw()
+	{
+		float u_step = 1.0f / res;
+		float v_step = 1.0f / res;
+
+		doDraw(u_step, v_step);
+	}
+
+};
+
+struct Teglatest: public Object
+{
+	Vector p0;
+	Vector right;
+	Vector up;
+	Vector back;
+	float a;
+	float b;
+	float c;
+	int res;
+
+	Teglatest(Vector _p0, Vector r, Vector u, float wa, float wb, float wc,
+			int resolution)
+	{
+		p0 = _p0;
+		right = r.norm();
+		up = u.norm();
+		back = (up % right).norm();
+		a = wa;
+		b = wb;
+		c = wc;
+		res = resolution;
+	}
+
+	void draw()
+	{
+		Teglalap f(p0, p0 + up * a, p0 + up * a + right * b, p0 + right * b,
+				res);
+		Teglalap u(f.p1, f.p1 + back * c, f.p1 + back * c + right * b, f.p2,
+				res);
+		Teglalap r(f.p2, u.p2, f.p3 + back * c, f.p3, res);
+		Teglalap d(f.p3, r.p2, f.p0 + back * c, f.p0, res);
+		Teglalap l(f.p0, d.p2, u.p1, f.p1, res);
+		Teglalap b(u.p1, l.p1, d.p1, r.p1, res);
+		f.draw();
+		u.draw();
+		r.draw();
+		d.draw();
+		l.draw();
+		b.draw();
+
+	}
 };
 
 struct Torus: public Object
@@ -735,25 +978,15 @@ struct Kerek: public Object
 		kerekagy = new Henger(0.8 * gumiR, gumiR, 10, 10);
 		for (int i = 0; i < kulloszam; ++i)
 		{
-			kullok[i] = new Henger(0.006, kerekR, 10, 10);
+			kullok[i] = new Henger(0.02, kerekR, 10, 10);
 		}
 	}
 
 	void draw()
 	{
+		setMaterial(EZUST);
 		for (int i = 0; i < kulloszam; ++i)
 		{
-			float a[3] =
-			{ 0.25, 0.25, 0.25 };
-			float d[3] =
-			{ 0.4, 0.4, 0.4 };
-			float sp[3] =
-			{ 0.774597, 0.774597, 0.774597 };
-			float sh = 0.6;
-			glMaterialfv(GL_FRONT, GL_AMBIENT, a);
-			glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
-			glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
-			glMaterialf(GL_FRONT, GL_SHININESS, sh);
 			glPushMatrix();
 			glRotatef(90, 1, 0, 0);
 			float rot = (360.0f / kulloszam) * i;
@@ -765,17 +998,7 @@ struct Kerek: public Object
 		glTranslatef(0, 0, kerekagy->h * 0.5f);
 		kerekagy->draw();
 		glPopMatrix();
-		float a[3] =
-		{ 0, 0, 0 };
-		float d[3] =
-		{ 0.01, 0.01, 0.01 };
-		float sp[3] =
-		{ 0.2, 0.2, 0.2 };
-		float sh = 0.25;
-		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
-		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
-		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		setMaterial(FEKETE);
 		gumi->draw();
 	}
 
@@ -796,6 +1019,7 @@ struct BringaVaz: public Object
 	Henger *kozep;
 	Henger *balfont;
 	Henger *ballent;
+	Henger *pedalcso;
 
 	float csoR;
 	float h;
@@ -809,6 +1033,7 @@ struct BringaVaz: public Object
 		jobbfont = new Henger(csoR, w * 0.6, 2, 10);
 		kozep = new Henger(csoR, h, 2, 10);
 		jobblent = new Henger(csoR, sqrt(pow(w * 0.6, 2) + pow(h, 2)), 2, 10);
+		pedalcso = new Henger(csoR, csoR * 8, 2, 10);
 		ballent = new Henger(csoR, w * 0.4, 10, 10);
 		balfont = new Henger(csoR, sqrt(pow(w * 0.4, 2) + pow(h, 2)), 2, 10);
 	}
@@ -820,21 +1045,11 @@ struct BringaVaz: public Object
 		delete kozep;
 		delete balfont;
 		delete ballent;
+		delete pedalcso;
 	}
 
 	void draw()
 	{
-		float a[3] =
-		{ 1, 0, 0 };
-		float d[3] =
-		{ 1, 0, 0 };
-		float sp[3] =
-		{ 1, 1, 1 };
-		float sh = 0;
-		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
-		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
-		glMaterialf(GL_FRONT, GL_SHININESS, sh);
 		glPushMatrix();
 		glRotatef(90, 1, 0, 0);
 		glTranslatef(w * -0.1f, 0, 0);
@@ -850,13 +1065,34 @@ struct BringaVaz: public Object
 		glPushMatrix();
 		glTranslatef(w * -0.1f, 0, 0);
 		glRotatef(270, 0, 1, 0);
-		float c = acos(h / jobblent->h);
+		float c = acos(MIN(h / jobblent->h, jobblent->h / h));
 		glRotatef(90 - c * (180.0 / M_PI), 1, 0, 0);
 		jobblent->draw();
 		glPopMatrix();
 
 		glPushMatrix();
+		glTranslatef(w * -0.1f, 0, 4 * csoR);
+		pedalcso->draw();
+		glTranslatef(0, h - csoR, 0);
+		pedalcso->draw();
+		glPopMatrix();
 
+		glPushMatrix();
+		glTranslatef(w * -0.1f, 0, 3 * csoR);
+		glRotatef(90, 0, 1, 0);
+		ballent->draw();
+		glTranslatef(6 * csoR, 0, 0);
+		ballent->draw();
+		glPopMatrix();
+
+		glPushMatrix();
+		glTranslatef(w * -0.1f - ballent->h, 0, 3 * csoR);
+		glRotatef(90, 0, 1, 0);
+		c = atan(MIN(h / ballent->h, ballent->h / h));
+		glRotatef(90 + c * (180.0 / M_PI), 1, 0, 0);
+		balfont->draw();
+		glTranslatef(6 * csoR, 0, 0);
+		balfont->draw();
 		glPopMatrix();
 	}
 
@@ -899,17 +1135,7 @@ struct Kormanymu: public Object
 		kerek->draw();
 		glPopMatrix();
 
-		float a[3] =
-		{ 1, 0, 0 };
-		float d[3] =
-		{ 1, 0, 0 };
-		float sp[3] =
-		{ 1, 1, 1 };
-		float sh = 0;
-		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
-		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
-		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		setMaterial(PIROS);
 		glPushMatrix();
 		glTranslatef(0, (-1.0f) * kerek->kerekagy->r, kerek->gumi->inR * 2.0f);
 		glRotatef(90, 1, 0, 0);
@@ -943,7 +1169,64 @@ struct Kormanymu: public Object
 
 struct Ember: public Object
 {
+	Ellipszoid *fej;
+	Teglatest *torzs;
+	Teglatest *ballab_font;
+	Teglatest *ballab_lent;
+	Teglatest *ballabfej;
+	Teglatest *jobblab_font;
+	Teglatest *jobblab_lent;
+	Teglatest *jobblabfej;
+	Teglatest *balkez_font;
+	Teglatest *balkez_lent;
+	Teglatest *balkezfej;
+	Teglatest *jobbkez_font;
+	Teglatest *jobbkez_lent;
+	Teglatest *jobbkezfej;
 
+	Ember(Vector fejpos, Vector fejmeret, Vector torzsmeret, float labhossz,
+			float labmeret)
+	{
+		fej = new Ellipszoid(fejpos, fejmeret.x, fejmeret.y, fejmeret.z,
+				MAX(MAX(fejmeret.x, fejmeret.y) * 50, 20.0f),
+				MAX(fejmeret.z * 20, 20.0f));
+		torzs = NULL;
+		ballab_font = NULL;
+		ballab_lent = NULL;
+		ballabfej = NULL;
+		jobblab_font = NULL;
+		jobblab_lent = NULL;
+		jobblabfej = NULL;
+		balkez_font = NULL;
+		balkez_lent = NULL;
+		balkezfej = NULL;
+		jobbkez_font = NULL;
+		jobbkez_lent = NULL;
+		jobbkezfej = NULL;
+	}
+
+	~Ember()
+	{
+		delete fej;
+		delete torzs;
+		delete ballab_font;
+		delete ballab_lent;
+		delete ballabfej;
+		delete jobblab_font;
+		delete jobblab_lent;
+		delete jobblabfej;
+		delete balkez_font;
+		delete balkez_lent;
+		delete balkezfej;
+		delete jobbkez_font;
+		delete jobbkez_lent;
+		delete jobbkezfej;
+	}
+
+	void draw()
+	{
+		fej->draw();
+	}
 };
 
 struct Bringa: public Object
@@ -988,6 +1271,7 @@ struct Bringa: public Object
 		glPopMatrix();
 
 		glPushMatrix();
+		setMaterial(PIROS);
 		vaz->draw();
 		glPopMatrix();
 	}
@@ -1029,13 +1313,13 @@ struct Scene
 
 	void build()
 	{
-		camera = new Camera(Vector(0, 0, 3), Vector(0, 0, 0), Vector(0, 1, 0),
-				90.0f, 1.0f, 0.1f, 10.0f);
+		camera = new Camera(Vector(0, 0, 4), Vector(0, 0, 0), Vector(0, 1, 0),
+				50.0f, 1.0f, 0.1f, 10.0f);
 
 		Color diffuse(0.5, 0.5, 0.5);
 		Color ambient(0, 0, 0);
-		Color specular(2, 2, 2);
-		Light *l0 = new Light(GL_LIGHT0, Vector(0, 0, 2.5), diffuse, ambient,
+		Color specular(5, 5, 5);
+		Light *l0 = new Light(GL_LIGHT0, Vector(0, 0, 2), diffuse, ambient,
 				specular);
 		lights[numLights++] = l0;
 	}
@@ -1106,11 +1390,25 @@ struct Scene
 //		glPopMatrix();
 
 		Bringa b(1.2, 2.5, 0.6, 0.04, 10);
+		Ember e(Vector(0.5, 2, 0), Vector(0.2, 0.2, 0.2), Vector(1, 1, 1), 1, 1);
 		glPushMatrix();
-		glTranslatef(0, -0.2, 0);
-		glRotatef(FOK, 0, 1, 0);
+		glTranslatef(0, -0.6, -2);
+		glRotatef(FOK - 30, 0, 1, 0);
 		b.draw();
+		setMaterial(ZOLD);
+		e.draw();
 		glPopMatrix();
+
+//		setMaterial(PIROS);
+//		Teglatest t(Vector(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 1,
+//				1, 1, 5);
+//		Teglalap t1(Vector(0, 0, 0), Vector(0, 1, 0), Vector(1, 1, 0),
+//				Vector(1, 0, 0), 40);
+//		glPushMatrix();
+//		glRotatef(FOK, 0, 1, 0);
+//		t.draw();
+////		t1.draw();
+//		glPopMatrix();
 	}
 };
 
@@ -1162,6 +1460,15 @@ void onKeyboard(unsigned char key, int x, int y)
 		break;
 	case 'f':
 		glShadeModel(GL_FLAT);
+		break;
+	case 'o':
+		scene.camera->fov += 5.0f;
+		break;
+	case 'p':
+		scene.camera->fov -= 5.0f;
+		break;
+	case 'n':
+		draw_normals = !draw_normals;
 		break;
 	default:
 		break;
