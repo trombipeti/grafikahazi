@@ -2,16 +2,16 @@ Készítsen kerékpáros katlant legalább három biciklizővel.
 --------------------------------------------------------------
  [ ] A katlan paraboloid, procedurálisan textúrázott, diffúz+spekuláris típusú.
 
- [x] A kerékpár két tóruszkerékből áll, amelynek legalább három küllője van,
+ [X] A kerékpár két tóruszkerékből áll, amelynek legalább három küllője van,
 	 valamint piros csillanó csövekből hegesztett váza és kormánya
 	 (elég csak vázlatosan kidolgozni, pl. pedál és lánc nem kell).
 
- [ ] A kerék foroghat, a kormány az első kerékkel elfordítható.
+ [X] A kerék foroghat, a kormány az első kerékkel elfordítható.
 
  [ ] A kerékpáros feje ellipszoid, testét és végtagjait téglatestekből kell összerakni,
 	 a kerékpáros nem fog tekerni, ezért merevnek feltételezhető.
 
- [-] A teret egy mozgó fényforrás világítja meg.
+ [X] A teret egy mozgó fényforrás világítja meg.
 
  [ ] A kerékpárok egyelőre a katlanban állnak és várnak az indulásra.
 
@@ -19,4 +19,4 @@ Készítsen kerékpáros katlant legalább három biciklizővel.
 
  [ ] A kerékpáros árnyékot vet a katlanra.
 
- [ ] A kamerát úgy kell beállítani, hogy a kerékpárosok látszódjanak a képen.
+ [X] A kamerát úgy kell beállítani, hogy a kerékpárosok látszódjanak a képen.

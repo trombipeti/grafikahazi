@@ -357,17 +357,27 @@ struct Object
 				Vector n4 = Vector(x4dv, y4dv, z4dv) % Vector(x4du, y4du, z4du);
 
 				glNormal3f(n1.x, n1.y, n1.z);
+				glTexCoord2d(u, v);
 				glVertex3f(x1, y1, z1);
+
 				glNormal3f(n2.x, n2.y, n2.z);
+				glTexCoord2d(u + u_step, v);
 				glVertex3f(x2, y2, z2);
+
 				glNormal3f(n3.x, n3.y, n3.z);
+				glTexCoord2d(u + u_step, v + v_step);
 				glVertex3f(x3, y3, z3);
 
 				glNormal3f(n1.x, n1.y, n1.z);
+				glTexCoord2d(u, v);
 				glVertex3f(x1, y1, z1);
+
 				glNormal3f(n3.x, n3.y, n3.z);
+				glTexCoord2d(u + u_step, v + v_step);
 				glVertex3f(x3, y3, z3);
+
 				glNormal3f(n4.x, n4.y, n4.z);
+				glTexCoord2d(u, v + v_step);
 				glVertex3f(x4, y4, z4);
 
 				glEnd();
@@ -570,22 +580,22 @@ struct Paraboloid: public Object
 
 	float z(float u, float v)
 	{
-		return u;
+		return u * h;
 	}
 
 	float xdu(float u, float v)
 	{
-		return a * sqrt(u / h) * cos(2 * M_PI * v) / (2 * 2 * M_PI * u);
+		return -a * sqrt(u / h) * cos(2 * M_PI * v) / (2 * 2 * M_PI * u);
 	}
 
 	float ydu(float u, float v)
 	{
-		return a * sqrt(u / h) * sin(2 * M_PI * v) / (2 * 2 * M_PI * u);
+		return -a * sqrt(u / h) * sin(2 * M_PI * v) / (2 * 2 * M_PI * u);
 	}
 
 	float zdu(float u, float v)
 	{
-		return 1;
+		return -1;
 	}
 
 	float xdv(float u, float v)
@@ -999,6 +1009,9 @@ struct Kerek: public Object
 		kerekagy->draw();
 		glPopMatrix();
 		setMaterial(FEKETE);
+		float sp[4] =
+		{ 0, 0, 0, 1 };
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
 		gumi->draw();
 	}
 
@@ -1279,6 +1292,7 @@ struct Bringa: public Object
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
+float A = 0;
 
 struct Scene
 {
@@ -1290,11 +1304,23 @@ struct Scene
 	Light *lights[8];
 	int numLights;
 
+	unsigned int texids;
+	int texlevel;
+	int texborder;
+	int texwidth;
+	int texheight;
+	unsigned char *image;
+
 	Scene()
 	{
 		camera = NULL;
 		numObjects = 0;
 		numLights = 0;
+		texids = 0;
+		texlevel = 0;
+		texborder = 0;
+		texwidth = texheight = 256;
+		image = new unsigned char[texwidth * texheight * 3];
 	}
 
 	~Scene()
@@ -1309,19 +1335,40 @@ struct Scene
 		{
 			delete lights[i];
 		}
+		delete image;
+	}
+
+	void genTexture()
+	{
+		for(int i = 0;i<texheight*texwidth*3; ++i)
+		{
+			image[i] = i < texheight*texwidth*1.5 ? 255 : 0;
+		}
 	}
 
 	void build()
 	{
-		camera = new Camera(Vector(0, 0, 4), Vector(0, 0, 0), Vector(0, 1, 0),
-				50.0f, 1.0f, 0.1f, 10.0f);
+		camera = new Camera(Vector(0, 1.4, 10), Vector(0, 0, 0),
+				Vector(0, 1, 0), 50.0f, 1.0f, 0.1f, 50.0f);
 
 		Color diffuse(0.5, 0.5, 0.5);
-		Color ambient(0, 0, 0);
+		Color ambient(0.1, 0.1, 0.1);
 		Color specular(5, 5, 5);
 		Light *l0 = new Light(GL_LIGHT0, Vector(0, 0, 2), diffuse, ambient,
 				specular);
 		lights[numLights++] = l0;
+
+		glGenTextures(1, &texids);
+		glBindTexture(GL_TEXTURE_2D, texids);
+
+		genTexture();
+
+		glTexImage2D(GL_TEXTURE_2D, texlevel, GL_RGB, texwidth, texheight,
+				texborder, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	}
 
 	void render()
@@ -1390,14 +1437,37 @@ struct Scene
 //		glPopMatrix();
 
 		Bringa b(1.2, 2.5, 0.6, 0.04, 10);
-		Ember e(Vector(0.5, 2, 0), Vector(0.2, 0.2, 0.2), Vector(1, 1, 1), 1, 1);
+		Ember e(Vector(0.5, 2, 0), Vector(0.2, 0.2, 0.2), Vector(1, 1, 1), 1,
+				1);
+		Paraboloid p(50, 5.3, 30, 100);
+
 		glPushMatrix();
 		glTranslatef(0, -0.6, -2);
 		glRotatef(FOK - 30, 0, 1, 0);
 		b.draw();
+
 		setMaterial(ZOLD);
 		e.draw();
 		glPopMatrix();
+
+		glTranslatef(0, -b.h - b.hatsokerek->gumi->inR + A, -2);
+		glRotatef(270, 1, 0, 0);
+		glEnable(GL_TEXTURE_2D);
+		p.draw();
+		glDisable(GL_TEXTURE_2D);
+
+//		glEnable(GL_TEXTURE_2D);
+//		glBegin(GL_QUADS);
+//		glTexCoord2d(0,0);
+//		glVertex2f(0,0);
+//		glTexCoord2d(0,1);
+//		glVertex2f(0,1);
+//		glTexCoord2d(1,1);
+//		glVertex2f(1,1);
+//		glTexCoord2d(1,0);
+//		glVertex2f(1,0);
+//		glEnd();
+//		glDisable(GL_TEXTURE_2D);
 
 //		setMaterial(PIROS);
 //		Teglatest t(Vector(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 1,
@@ -1449,17 +1519,17 @@ void onKeyboard(unsigned char key, int x, int y)
 	case 'd':
 		scene.camera->eye.x += 1;
 		break;
+	case 'w':
+		A += 0.3;
+		break;
+	case 's':
+		A -= 0.3;
+		break;
 	case 'k':
 		FOK -= 1;
 		break;
 	case 'l':
 		FOK += 1;
-		break;
-	case 's':
-		glShadeModel(GL_SMOOTH);
-		break;
-	case 'f':
-		glShadeModel(GL_FLAT);
 		break;
 	case 'o':
 		scene.camera->fov += 5.0f;
