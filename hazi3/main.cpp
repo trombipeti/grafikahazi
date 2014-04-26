@@ -63,7 +63,6 @@
 
 #include <stdio.h>
 float FOK = 0;
-bool have_to = false;
 
 template<typename T>
 T MAX(T a, T b)
@@ -169,7 +168,7 @@ struct Color
 
 enum MATERIAL
 {
-	PIROS, ZOLD, KEK, EZUST, FEKETE, FEHER
+	PIROS, ZOLD, KEK, EZUST, FEKETE, FEHER, BOR
 };
 
 void setMaterial(MATERIAL m)
@@ -266,6 +265,22 @@ void setMaterial(MATERIAL m)
 		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
 		glMaterialf(GL_FRONT, GL_SHININESS, sh);
 		break;
+	}
+	case BOR:
+	{
+		float a[4] =
+		{ 0.86, 0.71, 0.625, 1 };
+		float d[4] =
+		{ 1, 1, 1, 1 };
+		float sp[4] =
+		{ 1, 1, 1, 1 };
+		float sh = 0;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+
 	}
 	default:
 		break;
@@ -824,25 +839,25 @@ struct Paraboloid: public Object
 	void draw()
 	{
 
-		float u_step = h / (float) rings;
+		float u_step = (h / rings) * 0.00001;
 		float v_step = 1.0f / sides;
 		for (float u = 0; u < 1.0f; u += u_step)
-//		while(u < 1.0f)
 		{
+			u_step *= 2;
 			for (float v = 0; v < 1.0f; v += v_step)
-//			while(v < 1.0f)
 			{
 				Vector p0 = point(u, v);
 				Vector n0 = normal(u, v);
 				Vector p1 = point(MIN(u + u_step, 1.0f), v);
 				Vector n1 = normal(MIN(u + u_step, 1.0f), v);
 				Vector p2 = point(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				Vector n2 = normal(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				Vector n2 = normal(MIN(u + u_step, 1.0f),
+						MIN(v + v_step, 1.0f));
 				Vector p3 = point(u, MIN(v + v_step, 1.0f));
 				Vector n3 = normal(u, MIN(v + v_step, 1.0f));
 
 				glBegin(GL_TRIANGLES);
-				glTexCoord2f(u * rings, v);
+				glTexCoord2f(u, v);
 				glNormal3f(n0.x, n0.y, n0.z);
 				glVertex3f(p0.x, p0.y, p0.z);
 
@@ -868,7 +883,6 @@ struct Paraboloid: public Object
 				glEnd();
 //				v += 0.01f;
 			}
-//			u += 0.01f;
 		}
 
 	}
@@ -1640,7 +1654,7 @@ struct Scene
 		b3 = new Bringa(1.2, 2.5, 0.6, 0.04, 10);
 		e3 = new Ember(Vector(0, 2.1, 0), Vector(0.2, 0.2, 0.2),
 				Vector(0.3, 0.8, 0.6), 1, 1);
-		p = new Paraboloid(Vector(0, -b1->h, 0), 0.003, 20, 500, 700);
+		p = new Paraboloid(Vector(0, -b1->h, 0), 0.003, 3, 50, 100);
 
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
@@ -1666,7 +1680,7 @@ struct Scene
 //		ModelView.translate(0, 1, 0);
 //		glRotatef(20, 0, 1, 0);
 		b1->draw();
-		setMaterial(ZOLD);
+		setMaterial(BOR);
 		e1->draw();
 		glPopMatrix();
 //
@@ -1789,11 +1803,9 @@ void onKeyboard(unsigned char key, int x, int y)
 		break;
 	case 'k':
 		FOK += 1;
-		have_to = true;
 		break;
 	case 'l':
 		FOK -= 1;
-		have_to = true;
 		break;
 	case 'o':
 		scene.camera->fov += 5.0f;
@@ -1807,6 +1819,14 @@ void onKeyboard(unsigned char key, int x, int y)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		else
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		break;
+	case 't':
+		scene.p->rings /= 2;
+		printf("%d\n",scene.p->rings);
+		break;
+	case 'z':
+		scene.p->rings *= 2;
+		printf("%d\n",scene.p->rings);
 		break;
 	default:
 		break;
@@ -1838,9 +1858,9 @@ void onIdle()
 {
 	long time = glutGet(GLUT_ELAPSED_TIME);	// program inditasa ota eltelt ido
 //	FOK = fmod(time / 10.0f, 360.0f);
-//	scene.lights[0]->pos.x = 2 * cos(fmod((time / 10) * 0.01, 360.0f));
-//	scene.lights[0]->pos.y = 3 + sin(fmod((time / 10) * 0.05, 360.0f));
-//	scene.lights[0]->pos.z = 2 * sin(fmod((time / 10) * 0.01, 360.0f));
+	scene.l0->pos.x = 2 * cos(fmod((time / 10) * 0.01, 360.0f));
+	scene.l0->pos.y = 3 + sin(fmod((time / 10) * 0.05, 360.0f));
+	scene.l0->pos.z = 2 * sin(fmod((time / 10) * 0.01, 360.0f));
 	glutPostRedisplay();
 
 }
