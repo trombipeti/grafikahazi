@@ -62,7 +62,6 @@
 // Innentol modosithatod...
 
 float FOK = 0;
-bool draw_normals = false;
 
 template<typename T>
 T MAX(T a, T b)
@@ -167,7 +166,7 @@ struct Color
 
 enum MATERIAL
 {
-	PIROS, ZOLD, KEK, EZUST, FEKETE
+	PIROS, ZOLD, KEK, EZUST, FEKETE, FEHER
 };
 
 void setMaterial(MATERIAL m)
@@ -196,7 +195,7 @@ void setMaterial(MATERIAL m)
 		float d[4] =
 		{ 0, 1, 0, 1 };
 		float sp[4] =
-		{ 1, 1, 1, 1 };
+		{ 0, 0, 0, 1 };
 		float sh = 128;
 		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
@@ -244,6 +243,21 @@ void setMaterial(MATERIAL m)
 		float sp[4] =
 		{ 0.2, 0.2, 0.2, 1 };
 		float sh = 128;
+		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
+		glMaterialf(GL_FRONT, GL_SHININESS, sh);
+		break;
+	}
+	case FEHER:
+	{
+		float a[4] =
+		{ 0.5, 0.5, 0.5, 1 };
+		float d[4] =
+		{ 1, 1, 1, 1 };
+		float sp[4] =
+		{ 1, 1, 1, 1 };
+		float sh = 0;
 		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
@@ -302,103 +316,62 @@ struct Object
 		return 0;
 	}
 
+	virtual Vector point(float u, float v)
+	{
+		return Vector(x(u, v), y(u, v), z(u, v));
+	}
+
+	virtual Vector normal(float u, float v)
+	{
+		return Vector(xdv(u, v), ydv(u, v), zdv(u, v))
+				% Vector(xdu(u, v), ydu(u, v), zdu(u, v));
+	}
+
 	virtual void draw() = 0;
 
 	void doDraw(float u_step, float v_step)
 	{
-		for (float u = 0; u < 1.0f; u += u_step)
+		for (float u = 0; u <= 1.0f; u += u_step)
 		{
-			for (float v = 0; v < 1.0f; v += v_step)
+			for (float v = 0; v <= 1.0f; v += v_step)
 			{
 				glBegin(GL_TRIANGLES);
 
-				float x1 = x(u, v);
-				float y1 = y(u, v);
-				float z1 = z(u, v);
-				float x1du = xdu(u, v);
-				float y1du = ydu(u, v);
-				float z1du = zdu(u, v);
-				float x1dv = xdv(u, v);
-				float y1dv = ydv(u, v);
-				float z1dv = zdv(u, v);
-				Vector n1 = Vector(x1dv, y1dv, z1dv) % Vector(x1du, y1du, z1du);
+				Vector p0 = point(u, v);
+				Vector n0 = normal(u, v);
+				Vector p1 = point(MIN(u + u_step, 1.0f), v);
+				Vector n1 = normal(MIN(u + u_step, 1.0f), v);
+				Vector p2 = point(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				Vector n2 = normal(MIN(u + u_step, 1.0f),
+						MIN(v + v_step, 1.0f));
+				Vector p3 = point(u, MIN(v + v_step, 1.0f));
+				Vector n3 = normal(u, MIN(v + v_step, 1.0f));
 
-				float x2 = x(MIN(u + u_step, 1.0f), v);
-				float y2 = y(MIN(u + u_step, 1.0f), v);
-				float z2 = z(MIN(u + u_step, 1.0f), v);
-				float x2du = xdu(MIN(u + u_step, 1.0f), v);
-				float y2du = ydu(MIN(u + u_step, 1.0f), v);
-				float z2du = zdu(MIN(u + u_step, 1.0f), v);
-				float x2dv = xdv(MIN(u + u_step, 1.0f), v);
-				float y2dv = ydv(MIN(u + u_step, 1.0f), v);
-				float z2dv = zdv(MIN(u + u_step, 1.0f), v);
-				Vector n2 = Vector(x2dv, y2dv, z2dv) % Vector(x2du, y2du, z2du);
-
-				float x3 = x(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float y3 = y(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float z3 = z(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float x3du = xdu(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float y3du = ydu(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float z3du = zdu(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float x3dv = xdv(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float y3dv = ydv(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				float z3dv = zdv(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				Vector n3 = Vector(x3dv, y3dv, z3dv) % Vector(x3du, y3du, z3du);
-
-				float x4 = x(u, MIN(v + v_step, 1.0f));
-				float y4 = y(u, MIN(v + v_step, 1.0f));
-				float z4 = z(u, MIN(v + v_step, 1.0f));
-				float x4du = xdu(u, MIN(v + v_step, 1.0f));
-				float y4du = ydu(u, MIN(v + v_step, 1.0f));
-				float z4du = zdu(u, MIN(v + v_step, 1.0f));
-				float x4dv = xdv(u, MIN(v + v_step, 1.0f));
-				float y4dv = ydv(u, MIN(v + v_step, 1.0f));
-				float z4dv = zdv(u, MIN(v + v_step, 1.0f));
-				Vector n4 = Vector(x4dv, y4dv, z4dv) % Vector(x4du, y4du, z4du);
-
-				glNormal3f(n1.x, n1.y, n1.z);
 				glTexCoord2d(u, v);
-				glVertex3f(x1, y1, z1);
+				glNormal3f(n0.x, n0.y, n0.z);
+				glVertex3f(p0.x, p0.y, p0.z);
 
+				glTexCoord2d(MIN(u + u_step, 1.0f), v);
+				glNormal3f(n1.x, n1.y, n1.z);
+				glVertex3f(p1.x, p1.y, p1.z);
+
+				glTexCoord2d(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
 				glNormal3f(n2.x, n2.y, n2.z);
-				glTexCoord2d(u + u_step, v);
-				glVertex3f(x2, y2, z2);
+				glVertex3f(p2.x, p2.y, p2.z);
 
-				glNormal3f(n3.x, n3.y, n3.z);
-				glTexCoord2d(u + u_step, v + v_step);
-				glVertex3f(x3, y3, z3);
-
-				glNormal3f(n1.x, n1.y, n1.z);
 				glTexCoord2d(u, v);
-				glVertex3f(x1, y1, z1);
+				glNormal3f(n0.x, n0.y, n0.z);
+				glVertex3f(p0.x, p0.y, p0.z);
 
+				glTexCoord2d(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				glNormal3f(n2.x, n2.y, n2.z);
+				glVertex3f(p2.x, p2.y, p2.z);
+
+				glTexCoord2d(u, MIN(v + v_step, 1.0f));
 				glNormal3f(n3.x, n3.y, n3.z);
-				glTexCoord2d(u + u_step, v + v_step);
-				glVertex3f(x3, y3, z3);
-
-				glNormal3f(n4.x, n4.y, n4.z);
-				glTexCoord2d(u, v + v_step);
-				glVertex3f(x4, y4, z4);
+				glVertex3f(p3.x, p3.y, p3.z);
 
 				glEnd();
-
-				if (draw_normals)
-				{
-					glBegin(GL_LINES);
-					glVertex3f(x1, y1, z1);
-					glVertex3f(x1 + 0.1f * n1.norm().x, y1 + 0.1f * n1.norm().y,
-							z1 + 0.1f * n1.norm().z);
-					glVertex3f(x2, y2, z2);
-					glVertex3f(x2 + 0.1f * n2.norm().x, y2 + 0.1f * n2.norm().y,
-							z2 + 0.1f * n2.norm().z);
-					glVertex3f(x3, y3, z3);
-					glVertex3f(x3 + 0.1f * n3.norm().x, y3 + 0.1f * n3.norm().y,
-							z3 + 0.1f * n3.norm().z);
-					glVertex3f(x4, y4, z4);
-					glVertex3f(x4 + 0.1f * n4.norm().x, y4 + 0.1f * n4.norm().y,
-							z4 + 0.1f * n4.norm().z);
-					glEnd();
-				}
 
 			}
 		}
@@ -440,7 +413,7 @@ struct Camera
 		glLoadIdentity();
 		gluLookAt(eye.x, eye.y, eye.z, lookat.x, lookat.y, lookat.z, vup.x,
 				vup.y, vup.z);
-//		glRotatef(FOK, 0, 1, 0);
+		glRotatef(FOK, 0, 1, 0);
 	}
 };
 
@@ -468,13 +441,19 @@ struct Light
 	{
 		float p[4] =
 		{ pos.x, pos.y, pos.z, 1 };
+		float i_d[4] =
+		{ Id.r, Id.g, Id.b, 0 };
+		float i_a[4] =
+		{ Ia.r, Ia.g, Ia.b, 0 };
+		float i_s[4] =
+		{ Is.r, Is.g, Is.b, 0 };
 		glLightfv(id, GL_POSITION, p);
-		glLightfv(id, GL_DIFFUSE, (float*) &Id);
-		glLightfv(id, GL_AMBIENT, (float*) &Ia);
-		glLightfv(id, GL_SPECULAR, (float*) &Is);
+		glLightfv(id, GL_DIFFUSE, i_d);
+		glLightfv(id, GL_AMBIENT, i_a);
+		glLightfv(id, GL_SPECULAR, i_s);
 
 		glLightf(id, GL_CONSTANT_ATTENUATION, 0.0f);
-		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.8f);
+		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.5f);
 	}
 };
 
@@ -555,13 +534,15 @@ struct Ellipszoid: public Object
 
 struct Paraboloid: public Object
 {
+	Vector p0;
 	float h;
 	float a;
 	int rings;
 	int sides;
 
-	Paraboloid(float _a, float _h, int numRings, int numSides)
+	Paraboloid(Vector p, float _a, float _h, int numRings, int numSides)
 	{
+		p0 = p;
 		a = _a;
 		h = _h;
 		rings = numRings;
@@ -570,17 +551,17 @@ struct Paraboloid: public Object
 
 	float x(float u, float v)
 	{
-		return a * sqrt(u / h) * cos(2 * M_PI * v);
+		return p0.x + a * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	float y(float u, float v)
 	{
-		return a * sqrt(u / h) * sin(2 * M_PI * v);
+		return p0.y + u * h;
 	}
 
 	float z(float u, float v)
 	{
-		return u * h;
+		return p0.z + a * sqrt(u / h) * sin(2 * M_PI * v);
 	}
 
 	float xdu(float u, float v)
@@ -590,12 +571,12 @@ struct Paraboloid: public Object
 
 	float ydu(float u, float v)
 	{
-		return -a * sqrt(u / h) * sin(2 * M_PI * v) / (2 * 2 * M_PI * u);
+		return -1;
 	}
 
 	float zdu(float u, float v)
 	{
-		return -1;
+		return -a * sqrt(u / h) * sin(2 * M_PI * v) / (2 * 2 * M_PI * u);
 	}
 
 	float xdv(float u, float v)
@@ -605,17 +586,17 @@ struct Paraboloid: public Object
 
 	float ydv(float u, float v)
 	{
-		return a * sqrt(u / h) * cos(2 * M_PI * v);
+		return 0;
 	}
 	float zdv(float u, float v)
 	{
-		return 0;
+		return a * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	void draw()
 	{
-		float u_step = 1.0f / sides;
-		float v_step = (h / rings);
+		float u_step = 1.0f / rings;
+		float v_step = (h / sides);
 
 		doDraw(u_step, v_step);
 	}
@@ -694,16 +675,16 @@ struct Henger: public Object
 			glNormal3f(0, 0, 1);
 			glVertex3f(0, 0, 0);
 			glVertex3f(x(u, 0), y(u, 0), z(u, 0));
-			glVertex3f(x(MIN(u + u_step, 1.0f), 0), y(MIN(u + u_step, 1.0f), 0),
-					z(u, 0));
+			glVertex3f(x(MIN(MIN(u + u_step, 1.0f), 1.0f), 0),
+					y(MIN(MIN(u + u_step, 1.0f), 1.0f), 0), z(u, 0));
 			glEnd();
 
 			glBegin(GL_TRIANGLES);
 			glNormal3f(0, 0, -1);
 			glVertex3f(0, 0, z(u, 1));
 			glVertex3f(x(u, 1), y(u, 1), z(u, 1));
-			glVertex3f(x(MIN(u + u_step, 1.0f), 1), y(MIN(u + u_step, 1.0f), 1),
-					z(u, 1));
+			glVertex3f(x(MIN(MIN(u + u_step, 1.0f), 1.0f), 1),
+					y(MIN(MIN(u + u_step, 1.0f), 1.0f), 1), z(u, 1));
 			glEnd();
 		}
 	}
@@ -882,12 +863,11 @@ struct Teglatest: public Object
 
 	void draw()
 	{
-		Teglalap f(p0, p0 + up * a, p0 + up * a + right * b, p0 + right * b,
+		Teglalap f(p0, p0 + right * a, p0 + right * a + up * b, p0 + up * b,
 				res);
-		Teglalap u(f.p1, f.p1 + back * c, f.p1 + back * c + right * b, f.p2,
-				res);
-		Teglalap r(f.p2, u.p2, f.p3 + back * c, f.p3, res);
-		Teglalap d(f.p3, r.p2, f.p0 + back * c, f.p0, res);
+		Teglalap u(f.p1, f.p1 - back * c, f.p1 - back * c + up * b, f.p2, res);
+		Teglalap r(f.p2, u.p2, f.p3 - back * c, f.p3, res);
+		Teglalap d(f.p3, r.p2, f.p0 - back * c, f.p0, res);
 		Teglalap l(f.p0, d.p2, u.p1, f.p1, res);
 		Teglalap b(u.p1, l.p1, d.p1, r.p1, res);
 		f.draw();
@@ -1022,6 +1002,7 @@ struct Kerek: public Object
 		{
 			delete kullok[i];
 		}
+		delete kerekagy;
 	}
 };
 
@@ -1047,7 +1028,7 @@ struct BringaVaz: public Object
 		kozep = new Henger(csoR, h, 2, 10);
 		jobblent = new Henger(csoR, sqrt(pow(w * 0.6, 2) + pow(h, 2)), 2, 10);
 		pedalcso = new Henger(csoR, csoR * 8, 2, 10);
-		ballent = new Henger(csoR, w * 0.4, 10, 10);
+		ballent = new Henger(csoR, w * 0.4, 2, 10);
 		balfont = new Henger(csoR, sqrt(pow(w * 0.4, 2) + pow(h, 2)), 2, 10);
 	}
 
@@ -1203,7 +1184,11 @@ struct Ember: public Object
 		fej = new Ellipszoid(fejpos, fejmeret.x, fejmeret.y, fejmeret.z,
 				MAX(MAX(fejmeret.x, fejmeret.y) * 50, 20.0f),
 				MAX(fejmeret.z * 20, 20.0f));
-		torzs = NULL;
+		Vector torzspos = fejpos
+				- Vector(-fejmeret.x * 0.5f, fejmeret.y + torzsmeret.y,
+						-torzsmeret.z * 0.5f);
+		torzs = new Teglatest(torzspos, Vector(-1, 0, 0), Vector(0, 1, 0),
+				torzsmeret.x, torzsmeret.y, torzsmeret.z, 10);
 		ballab_font = NULL;
 		ballab_lent = NULL;
 		ballabfej = NULL;
@@ -1239,6 +1224,7 @@ struct Ember: public Object
 	void draw()
 	{
 		fej->draw();
+		torzs->draw();
 	}
 };
 
@@ -1246,7 +1232,6 @@ struct Bringa: public Object
 {
 	Kerek *hatsokerek;
 	Kormanymu *kormany;
-	Ember *rider;
 	BringaVaz *vaz;
 
 	float h;
@@ -1258,7 +1243,6 @@ struct Bringa: public Object
 		w = width;
 		hatsokerek = new Kerek(kerekR, gumiR, kulloSzam);
 		kormany = new Kormanymu(h, kerekR, gumiR, kulloSzam);
-		rider = NULL;
 		vaz = new BringaVaz(h * 0.85f, w * 0.9f, gumiR);
 	}
 
@@ -1266,7 +1250,6 @@ struct Bringa: public Object
 	{
 		delete hatsokerek;
 		delete kormany;
-		delete rider;
 		delete vaz;
 	}
 
@@ -1279,7 +1262,7 @@ struct Bringa: public Object
 
 		glPushMatrix();
 		glTranslatef(w * 0.45f, 0, 0);
-		glRotatef(FOK, 0, 1, 0);
+//		glRotatef(FOK, 0, 1, 0);
 		kormany->draw();
 		glPopMatrix();
 
@@ -1292,57 +1275,72 @@ struct Bringa: public Object
 
 const int screenWidth = 600;	// alkalmazás ablak felbontása
 const int screenHeight = 600;
-float A = 0;
 
 struct Scene
 {
 	Camera *camera;
 
-	Object* objects[100];
-	int numObjects;
-
 	Light *lights[8];
 	int numLights;
 
 	unsigned int texids;
-	int texlevel;
-	int texborder;
-	int texwidth;
-	int texheight;
-	unsigned char *image;
+	unsigned char image[256][256][3];
+
+	Bringa *b1;
+	Ember *e1;
+	Bringa *b2;
+	Ember *e2;
+	Bringa *b3;
+	Ember *e3;
+
+	Paraboloid *p;
 
 	Scene()
 	{
 		camera = NULL;
-		numObjects = 0;
 		numLights = 0;
 		texids = 0;
-		texlevel = 0;
-		texborder = 0;
-		texwidth = texheight = 256;
-		image = new unsigned char[texwidth * texheight * 3];
+		b1 = b2 = b3 = NULL;
+		e1 = e2 = e3 = NULL;
+		p = NULL;
 	}
 
 	~Scene()
 	{
 		if (camera)
 			delete camera;
-		for (int i = 0; i < numObjects; ++i)
-		{
-			delete objects[i];
-		}
 		for (int i = 0; i < numLights; ++i)
 		{
 			delete lights[i];
 		}
-		delete image;
+		delete b1;
+		delete e1;
+		delete b2;
+		delete e2;
+		delete b3;
+		delete e3;
+		delete p;
+
 	}
 
 	void genTexture()
 	{
-		for(int i = 0;i<texheight*texwidth*3; ++i)
+		for (int x = 0; x < 256; ++x)
 		{
-			image[i] = i < texheight*texwidth*1.5 ? 255 : 0;
+			for (int y = 0; y < 256; ++y)
+			{
+				if ((x / 32) % 2 == 0)
+				{
+					image[x][y][1] = 255;
+					image[x][y][2] = 255;
+				}
+				else
+				{
+					image[x][y][1] = 0;
+					image[x][y][1] = 0;
+				}
+				image[x][y][0] = 255;
+			}
 		}
 	}
 
@@ -1351,24 +1349,35 @@ struct Scene
 		camera = new Camera(Vector(0, 1.4, 10), Vector(0, 0, 0),
 				Vector(0, 1, 0), 50.0f, 1.0f, 0.1f, 50.0f);
 
-		Color diffuse(0.5, 0.5, 0.5);
-		Color ambient(0.1, 0.1, 0.1);
+		Color diffuse(1, 1, 1);
+		Color ambient(0.2, 0.2, 0.2);
 		Color specular(5, 5, 5);
 		Light *l0 = new Light(GL_LIGHT0, Vector(0, 0, 2), diffuse, ambient,
 				specular);
 		lights[numLights++] = l0;
+
+		b1 = new Bringa(1.2, 2.5, 0.6, 0.04, 10);
+		e1 = new Ember(Vector(0, 2.1, 0), Vector(0.2, 0.2, 0.2),
+				Vector(0.3, 0.8, 0.6), 1, 1);
+		b2 = new Bringa(1.2, 2.5, 0.6, 0.04, 10);
+		e2 = new Ember(Vector(0, 2.1, 0), Vector(0.2, 0.2, 0.2),
+				Vector(0.3, 0.8, 0.6), 1, 1);
+		b3 = new Bringa(1.2, 2.5, 0.6, 0.04, 10);
+		e3 = new Ember(Vector(0, 2.1, 0), Vector(0.2, 0.2, 0.2),
+				Vector(0.3, 0.8, 0.6), 1, 1);
+		p = new Paraboloid(Vector(0, -b1->h, 0), 200, 15, 500, 700);
 
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
 
 		genTexture();
 
-		glTexImage2D(GL_TEXTURE_2D, texlevel, GL_RGB, texwidth, texheight,
-				texborder, GL_RGB, GL_UNSIGNED_BYTE, image);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGB,
+		GL_UNSIGNED_BYTE, image);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	}
 
 	void render()
@@ -1378,112 +1387,40 @@ struct Scene
 		{
 			lights[i]->setOGL();
 		}
-		for (int i = 0; i < numObjects; ++i)
-		{
-			objects[i]->draw();
-		}
-//		Kerek k(0.3, 0.02, 15);
-//		Henger h(0.3, 1, 20, 40);
-//		Ellipszoid light(0.1, 0.1, 0.1, 30, 30);
-//		Ellipszoid e(0.4, 0.5, 0.7, 100, 100);
-//		Paraboloid p(10, 20, 400, 40);
-//
-//		glPushMatrix();
-//		glTranslatef(0, -1 + k.gumi->outR + k.gumi->inR, 0);
-//		glRotatef(FOK, 0, 0, 1);
-//		k.draw();
-//		glPopMatrix();
-//		float d1[4] =
-//		{ 0.4, 0.4, 0, 1 };
-//		glMaterialfv(GL_FRONT, GL_DIFFUSE, d1);
-//		d1[0] = 0;
-//		d1[1] = 0;
-//		d1[2] = 0;
-//		d1[3] = 1;
-//		glMaterialfv(GL_FRONT, GL_SPECULAR, d1);
-//		glMaterialf(GL_FRONT, GL_SHININESS, 0.4);
-//
-//		glPushMatrix();
-//		glTranslatef(0, -1, 0);
-//		glRotatef(270, 1, 0, 0);
-//		float d2[4] =
-//		{ 0.4, 0.4, 0.1, 1 };
-//		glMaterialfv(GL_FRONT, GL_DIFFUSE, d2);
-//		glMaterialfv(GL_FRONT, GL_AMBIENT, d2);
-//		glMaterialfv(GL_FRONT, GL_SPECULAR, d2);
-//		glMaterialf(GL_FRONT, GL_SHININESS, 0.4);
-//		p.draw();
-//		glPopMatrix();
-//
-//		glPushMatrix();
-//		glTranslatef(lights[0]->pos.x, lights[0]->pos.y, lights[0]->pos.z);
-//		light.draw();
-//		glPopMatrix();
-//		glPushMatrix();
-//		glTranslatef(0, 0, -1);
-////		glRotatef(-90, 1, 0, 0);
-//		e.draw();
-//		glPopMatrix();
-//		glPushMatrix();
-//		glTranslatef(0, 0.2, -0.5);
-//		glRotatef(90, 0, 1, 0);
-//		float d[4] =
-//		{ 0.4, 0.1, 0.1, 1 };
-//		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
-//		d[0] = 1;
-//		glMaterialfv(GL_FRONT, GL_SPECULAR, d);
-//		glMaterialf(GL_FRONT, GL_SHININESS, 0.8);
-//		h.draw();
-//		glPopMatrix();
-
-		Bringa b(1.2, 2.5, 0.6, 0.04, 10);
-		Ember e(Vector(0.5, 2, 0), Vector(0.2, 0.2, 0.2), Vector(1, 1, 1), 1,
-				1);
-		Paraboloid p(50, 5.3, 30, 100);
 
 		glPushMatrix();
-		glTranslatef(0, -0.6, -2);
-		glRotatef(FOK - 30, 0, 1, 0);
-		b.draw();
-
+		glTranslatef(-2, -0.6, 0);
+		glRotatef(20, 0, 1, 0);
+		b1->draw();
 		setMaterial(ZOLD);
-		e.draw();
+		e1->draw();
 		glPopMatrix();
 
-		glTranslatef(0, -b.h - b.hatsokerek->gumi->inR + A, -2);
-		glRotatef(270, 1, 0, 0);
+		glPushMatrix();
+		glTranslatef(0, -0.6, -4);
+		glRotatef(300, 0, 1, 0);
+		b2->draw();
+		setMaterial(ZOLD);
+		e2->draw();
+		glPopMatrix();
+
+		glPushMatrix();
+		glTranslatef(2, -0.6, 0);
+		glRotatef(210, 0, 1, 0);
+		b3->draw();
+		setMaterial(ZOLD);
+		e3->draw();
+		glPopMatrix();
+
+		setMaterial(FEHER);
 		glEnable(GL_TEXTURE_2D);
-		p.draw();
+		p->draw();
 		glDisable(GL_TEXTURE_2D);
-
-//		glEnable(GL_TEXTURE_2D);
-//		glBegin(GL_QUADS);
-//		glTexCoord2d(0,0);
-//		glVertex2f(0,0);
-//		glTexCoord2d(0,1);
-//		glVertex2f(0,1);
-//		glTexCoord2d(1,1);
-//		glVertex2f(1,1);
-//		glTexCoord2d(1,0);
-//		glVertex2f(1,0);
-//		glEnd();
-//		glDisable(GL_TEXTURE_2D);
-
-//		setMaterial(PIROS);
-//		Teglatest t(Vector(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 1,
-//				1, 1, 5);
-//		Teglalap t1(Vector(0, 0, 0), Vector(0, 1, 0), Vector(1, 1, 0),
-//				Vector(1, 0, 0), 40);
-//		glPushMatrix();
-//		glRotatef(FOK, 0, 1, 0);
-//		t.draw();
-////		t1.draw();
-//		glPopMatrix();
 	}
 };
 
 Scene scene;
-
+bool line = false;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization()
 {
@@ -1493,7 +1430,7 @@ void onInitialization()
 	glEnable(GL_NORMALIZE);
 	glEnable(GL_LIGHTING);
 	glShadeModel(GL_SMOOTH);
-//	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+//	glLineWidth(2);
 
 	scene.build();
 }
@@ -1520,16 +1457,16 @@ void onKeyboard(unsigned char key, int x, int y)
 		scene.camera->eye.x += 1;
 		break;
 	case 'w':
-		A += 0.3;
+		scene.p->a -= 2;
 		break;
 	case 's':
-		A -= 0.3;
+		scene.p->a += 2;
 		break;
 	case 'k':
-		FOK -= 1;
+		FOK += 1;
 		break;
 	case 'l':
-		FOK += 1;
+		FOK -= 1;
 		break;
 	case 'o':
 		scene.camera->fov += 5.0f;
@@ -1537,9 +1474,13 @@ void onKeyboard(unsigned char key, int x, int y)
 	case 'p':
 		scene.camera->fov -= 5.0f;
 		break;
-	case 'n':
-		draw_normals = !draw_normals;
-		break;
+//	case 'f':
+//		line = !line;
+//		if (line)
+//			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+//		else
+//			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+//		break;
 	default:
 		break;
 	}
@@ -1556,7 +1497,7 @@ void onKeyboardUp(unsigned char key, int x, int y)
 void onMouse(int button, int state, int x, int y)
 {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		glutPostRedisplay(); 					// Ilyenkor rajzold ujra a kepet
+		glutPostRedisplay(); 			// Ilyenkor rajzold ujra a kepet
 }
 
 // Eger mozgast lekezelo fuggveny
@@ -1595,9 +1536,9 @@ int main(int argc, char **argv)
 	glMatrixMode(GL_PROJECTION);// A PROJECTION transzformaciot egysegmatrixra inicializaljuk
 	glLoadIdentity();
 
-	onInitialization();				// Az altalad irt inicializalast lefuttatjuk
+	onInitialization();		// Az altalad irt inicializalast lefuttatjuk
 
-	glutDisplayFunc(onDisplay);				// Esemenykezelok regisztralasa
+	glutDisplayFunc(onDisplay);			// Esemenykezelok regisztralasa
 	glutMouseFunc(onMouse);
 	glutIdleFunc(onIdle);
 	glutKeyboardFunc(onKeyboard);
