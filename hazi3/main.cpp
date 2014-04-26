@@ -63,6 +63,7 @@
 
 #include <stdio.h>
 float FOK = 0;
+bool have_to = false;
 
 template<typename T>
 T MAX(T a, T b)
@@ -479,19 +480,19 @@ Vector operator*(const Vector& v, const Matrix& m)
 	static int a = 0;
 	Vector ret;
 
-	for (int i = 0; i < 4; ++i)
-	{
-		ret.x += m.mx[i * 4] * v.x;
-		ret.y += m.mx[i * 4 + 1] * v.y;
-		ret.z += m.mx[i * 4 + 2] * v.z;
-		ret.w += m.mx[i * 4 + 3] * v.w;
-	}
-//	if (a < 100 && v.y > 0.1f)
-//	{
-//		printf("Ebből lesz: %.1f, %.1f, %.1f, %.1f\n", v.x, v.y, v.z, v.w);
-//		printf("Ez: %.1f, %.1f, %.1f, %.1f\n", ret.x, ret.y, ret.z, ret.w);
-//		++a;
-//	}
+	Matrix ize;
+	ize.mx[0] = v.x;
+	ize.mx[1] = v.y;
+	ize.mx[2] = v.z;
+	ize.mx[3] = v.w;
+
+	ize = ize * m;
+
+	ret.x = ize.mx[0];
+	ret.y = ize.mx[1];
+	ret.z = ize.mx[2];
+	ret.w = ize.mx[3];
+
 	return ret;
 }
 
@@ -1691,12 +1692,12 @@ struct Scene
 		p->draw();
 		glDisable(GL_TEXTURE_2D);
 
-//		mxstack.push(ModelView);
-//		ModelView.translate(0, FOK / 100.0f, 0);
+		mxstack.push(ModelView);
+		ModelView.translate(0, FOK, 0);
 //		ModelView.scale(1,1.0f/FOK,1);
 		Ellipszoid el(l0->pos, 0.4, 0.4, 0.4, 30, 30);
 		el.draw();
-//		ModelView = mxstack.pop();
+		ModelView = mxstack.pop();
 	}
 };
 
@@ -1788,9 +1789,11 @@ void onKeyboard(unsigned char key, int x, int y)
 		break;
 	case 'k':
 		FOK += 1;
+		have_to = true;
 		break;
 	case 'l':
 		FOK -= 1;
+		have_to = true;
 		break;
 	case 'o':
 		scene.camera->fov += 5.0f;
