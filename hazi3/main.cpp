@@ -61,6 +61,7 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
+#include <stdio.h>
 float FOK = 0;
 
 template<typename T>
@@ -80,37 +81,38 @@ T MIN(T a, T b)
 //--------------------------------------------------------
 struct Vector
 {
-	float x, y, z;
+	float x, y, z, w;
 
 	Vector()
 	{
-		x = y = z = 0;
+		x = y = z = w = 0;
 	}
-	Vector(float x0, float y0, float z0 = 0)
+	Vector(float x0, float y0, float z0 = 0, float w0 = 1)
 	{
 		x = x0;
 		y = y0;
 		z = z0;
+		w = w0;
 	}
 	Vector operator*(float a) const
 	{
-		return Vector(x * a, y * a, z * a);
+		return Vector(x * a, y * a, z * a, w * a);
 	}
 	Vector operator/(float a) const
 	{
-		return Vector(x / a, y / a, z / a);
+		return Vector(x / a, y / a, z / a, w / a);
 	}
 	Vector operator+(const Vector& v) const
 	{
-		return Vector(x + v.x, y + v.y, z + v.z);
+		return Vector(x + v.x, y + v.y, z + v.z, w + v.w);
 	}
 	Vector operator-(const Vector& v) const
 	{
-		return Vector(x - v.x, y - v.y, z - v.z);
+		return Vector(x - v.x, y - v.y, z - v.z, w - v.w);
 	}
 	float operator*(const Vector& v) const  	// dot product
 	{
-		return (x * v.x + y * v.y + z * v.z);
+		return (x * v.x + y * v.y + z * v.z + w * v.w);
 	}
 	Vector operator%(const Vector& v) const  	// cross product
 	{
@@ -130,7 +132,7 @@ struct Vector
 
 Vector operator*(float f, const Vector& v)
 {
-	return Vector(v.x * f, v.y * f, v.z * f);
+	return Vector(v.x * f, v.y * f, v.z * f, v.w * f);
 }
 
 //--------------------------------------------------------
@@ -269,6 +271,230 @@ void setMaterial(MATERIAL m)
 	}
 }
 
+struct Matrix
+{
+	float mx[4 * 4];
+
+	float inv[4 * 4];
+
+	Matrix()
+	{
+		loadIdentity();
+	}
+
+	void loadIdentity()
+	{
+		for (int i = 0; i < 4 * 4; ++i)
+		{
+			if (i % 5 == 0)
+			{
+				mx[i] = 1;
+				inv[i] = 1;
+			}
+			else
+			{
+				mx[i] = 0;
+				inv[i] = 0;
+			}
+		}
+	}
+
+	static void copy_mx4(float to[], float from[])
+	{
+		for (int i = 0; i < 4 * 4; ++i)
+		{
+			*(to + i) = *(from + i);
+		}
+	}
+
+	void translate(float px, float py, float pz, bool comp_inv = true)
+	{
+		Matrix tr;
+		tr.mx[12] = px;
+		tr.mx[13] = py;
+		tr.mx[14] = pz;
+		if (comp_inv)
+		{
+			Matrix i;
+			copy_mx4(i.mx, inv);
+			*this = tr * (*this);
+			i.translate(-px, -py, -pz, false);
+			copy_mx4(inv, i.mx);
+		}
+		else
+		{
+			*this = (*this) * tr;
+		}
+	}
+
+	void rotate(float angle, float x, float y, float z, bool comp_inv = true)
+	{
+		Matrix tr;
+		// [0,u2sw ×u2w×w ×u]
+		float fok = angle * (M_PI / 180.0f);
+		Vector w = sin(fok * 0.5f) * (Vector(x, y, z).norm());
+		Vector u0 = Vector(1, 0, 0);
+		Vector u0_rot = u0 + 2 * cos(fok * 0.5f) * (w % u0)
+				+ (2 * w) % (w % u0);
+		tr.mx[0] = u0_rot.x;
+		tr.mx[1] = u0_rot.y;
+		tr.mx[2] = u0_rot.z;
+
+		Vector u1 = Vector(0, 1, 0);
+		Vector u1_rot = u1 + 2 * cos(fok * 0.5f) * (w % u1)
+				+ (2 * w) % (w % u1);
+		tr.mx[4] = u1_rot.x;
+		tr.mx[5] = u1_rot.y;
+		tr.mx[6] = u1_rot.z;
+
+		Vector u2 = Vector(0, 0, 1);
+		Vector u2_rot = u2 + 2 * cos(fok * 0.5f) * (w % u2)
+				+ (2 * w) % (w % u2);
+		tr.mx[8] = u2_rot.x;
+		tr.mx[9] = u2_rot.y;
+		tr.mx[10] = u2_rot.z;
+
+		if (comp_inv)
+		{
+			Matrix i;
+			copy_mx4(i.mx, inv);
+			*this = tr * (*this);
+			i.rotate(360.0f - angle, x, y, z, false);
+			copy_mx4(inv, i.mx);
+		}
+		else
+		{
+			*this = (*this) * tr;
+		}
+
+	}
+
+	void scale(float sx, float sy, float sz, bool comp_inv = true)
+	{
+		Matrix tr;
+		tr.mx[0] = sx;
+		tr.mx[5] = sy;
+		tr.mx[10] = sz;
+
+		if (comp_inv)
+		{
+			Matrix i;
+			copy_mx4(i.mx, inv);
+			*this = tr * (*this);
+			i.scale(1.0f / sx, 1.0f / sy, 1.0f / sz, false);
+			copy_mx4(inv, i.mx);
+		}
+		else
+		{
+			*this = (*this) * tr;
+		}
+	}
+
+	Matrix inverz()
+	{
+		Matrix ret;
+		copy_mx4(ret.mx, inv);
+		return ret;
+	}
+
+	Matrix transzponalt()
+	{
+		Matrix ret;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				ret.mx[i * 4 + j] = mx[i + j * 4];
+			}
+		}
+		return ret;
+	}
+
+	Matrix invTrans()
+	{
+		return inverz().transzponalt();
+	}
+
+	Matrix operator*(float a)
+	{
+		Matrix ret;
+		for (int i = 0; i < 4 * 4; ++i)
+		{
+			ret.mx[i] = mx[i] * a;
+		}
+		return ret;
+	}
+
+	Matrix operator/(float a)
+	{
+		return *this * (1.0f / a);
+	}
+
+	Matrix operator*(const Matrix& m)
+	{
+		Matrix ret;
+		for (int i = 0; i < 4 * 4; ++i)
+		{
+			float f = 0;
+			for (int j = 0; j < 4; ++j)
+			{
+				int jobb = j * 4 + i % 4;
+				int bal = (i / 4) * 4 + j;
+				f += mx[bal] * m.mx[jobb];
+			}
+			ret.mx[i] = f;
+		}
+		return ret;
+	}
+
+};
+
+Matrix ModelView;
+
+struct MatrixStack
+{
+	Matrix stack[32];
+	int top;
+
+	MatrixStack()
+	{
+		top = 0;
+	}
+
+	void push(const Matrix& m)
+	{
+		stack[top++] = m;
+	}
+
+	Matrix pop()
+	{
+		return stack[--top];
+	}
+};
+
+MatrixStack mxstack;
+
+Vector operator*(const Vector& v, const Matrix& m)
+{
+	static int a = 0;
+	Vector ret;
+
+	for (int i = 0; i < 4; ++i)
+	{
+		ret.x += m.mx[i * 4] * v.x;
+		ret.y += m.mx[i * 4 + 1] * v.y;
+		ret.z += m.mx[i * 4 + 2] * v.z;
+		ret.w += m.mx[i * 4 + 3] * v.w;
+	}
+//	if (a < 100 && v.y > 0.1f)
+//	{
+//		printf("Ebből lesz: %.1f, %.1f, %.1f, %.1f\n", v.x, v.y, v.z, v.w);
+//		printf("Ez: %.1f, %.1f, %.1f, %.1f\n", ret.x, ret.y, ret.z, ret.w);
+//		++a;
+//	}
+	return ret;
+}
+
 struct Object
 {
 	virtual float x(float u, float v)
@@ -318,13 +544,17 @@ struct Object
 
 	virtual Vector point(float u, float v)
 	{
-		return Vector(x(u, v), y(u, v), z(u, v));
+		Vector ret = Vector(x(u, v), y(u, v), z(u, v));
+		ret = ret * ModelView;
+		return ret;
 	}
 
 	virtual Vector normal(float u, float v)
 	{
-		return Vector(xdv(u, v), ydv(u, v), zdv(u, v))
-				% Vector(xdu(u, v), ydu(u, v), zdu(u, v));
+		Vector ret = (Vector(xdv(u, v), ydv(u, v), zdv(u, v))
+				% Vector(xdu(u, v), ydu(u, v), zdu(u, v)));
+		ret = ret * ModelView.invTrans();
+		return ret;
 	}
 
 	virtual void draw() = 0;
@@ -347,27 +577,21 @@ struct Object
 				Vector p3 = point(u, MIN(v + v_step, 1.0f));
 				Vector n3 = normal(u, MIN(v + v_step, 1.0f));
 
-				glTexCoord2d(u, v);
 				glNormal3f(n0.x, n0.y, n0.z);
 				glVertex3f(p0.x, p0.y, p0.z);
 
-				glTexCoord2d(MIN(u + u_step, 1.0f), v);
 				glNormal3f(n1.x, n1.y, n1.z);
 				glVertex3f(p1.x, p1.y, p1.z);
 
-				glTexCoord2d(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
 				glNormal3f(n2.x, n2.y, n2.z);
 				glVertex3f(p2.x, p2.y, p2.z);
 
-				glTexCoord2d(u, v);
 				glNormal3f(n0.x, n0.y, n0.z);
 				glVertex3f(p0.x, p0.y, p0.z);
 
-				glTexCoord2d(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
 				glNormal3f(n2.x, n2.y, n2.z);
 				glVertex3f(p2.x, p2.y, p2.z);
 
-				glTexCoord2d(u, MIN(v + v_step, 1.0f));
 				glNormal3f(n3.x, n3.y, n3.z);
 				glVertex3f(p3.x, p3.y, p3.z);
 
@@ -453,9 +677,11 @@ struct Light
 		glLightfv(id, GL_SPECULAR, i_s);
 
 		glLightf(id, GL_CONSTANT_ATTENUATION, 0.0f);
-		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.5f);
+		glLightf(id, GL_QUADRATIC_ATTENUATION, 0.1f);
 	}
 };
+
+//Light light0(GL_LIGHT0,Vector(0,2,2),)
 
 struct Ellipszoid: public Object
 {
@@ -551,7 +777,7 @@ struct Paraboloid: public Object
 
 	float x(float u, float v)
 	{
-		return p0.x + a * sqrt(u / h) * cos(2 * M_PI * v);
+		return p0.x + 1.0f / a * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	float y(float u, float v)
@@ -561,12 +787,13 @@ struct Paraboloid: public Object
 
 	float z(float u, float v)
 	{
-		return p0.z + a * sqrt(u / h) * sin(2 * M_PI * v);
+		return p0.z + (1.0f / a) * sqrt(u / h) * sin(2 * M_PI * v);
 	}
 
 	float xdu(float u, float v)
 	{
-		return -a * sqrt(u / h) * cos(2 * M_PI * v) / (2 * 2 * M_PI * u);
+		return (-1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v)
+				/ (2 * 2 * M_PI * u);
 	}
 
 	float ydu(float u, float v)
@@ -590,15 +817,66 @@ struct Paraboloid: public Object
 	}
 	float zdv(float u, float v)
 	{
-		return a * sqrt(u / h) * cos(2 * M_PI * v);
+		return (1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	void draw()
 	{
-		float u_step = 1.0f / rings;
-		float v_step = (h / sides);
 
-		doDraw(u_step, v_step);
+		float u_step = h / (float) rings;
+		float v_step = 1.0f / sides;
+		for (float u = 0; u < 1.0f; u += u_step)
+//		while(u < 1.0f)
+		{
+			for (float v = 0; v < 1.0f; v += v_step)
+//			while(v < 1.0f)
+			{
+				Vector p0 = point(u, v);
+				Vector n0 = normal(u, v);
+				Vector p1 = point(MIN(u + u_step, 1.0f), v);
+				Vector n1 = normal(MIN(u + u_step, 1.0f), v);
+				Vector p2 = point(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				Vector n2 = normal(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				Vector p3 = point(u, MIN(v + v_step, 1.0f));
+				Vector n3 = normal(u, MIN(v + v_step, 1.0f));
+
+				glBegin(GL_TRIANGLES);
+				glTexCoord2f(u * rings, v);
+				glNormal3f(n0.x, n0.y, n0.z);
+				glVertex3f(p0.x, p0.y, p0.z);
+
+				glTexCoord2f(MIN(u + u_step, 1.0f), v);
+				glNormal3f(n1.x, n1.y, n1.z);
+				glVertex3f(p1.x, p1.y, p1.z);
+
+				glTexCoord2f(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				glNormal3f(n2.x, n2.y, n2.z);
+				glVertex3f(p2.x, p2.y, p2.z);
+
+				glTexCoord2f(u, v);
+				glNormal3f(n0.x, n0.y, n0.z);
+				glVertex3f(p0.x, p0.y, p0.z);
+
+				glTexCoord2f(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				glNormal3f(n2.x, n2.y, n2.z);
+				glVertex3f(p2.x, p2.y, p2.z);
+
+				glTexCoord2f(u, MIN(v + v_step, 1.0f));
+				glNormal3f(n3.x, n3.y, n3.z);
+				glVertex3f(p3.x, p3.y, p3.z);
+				glEnd();
+//				v += 0.01f;
+			}
+//			u += 0.01f;
+		}
+
+	}
+
+	float intersect(Vector ray_origin, Vector ray_dv)
+	{
+		float t = -1;
+
+		return t;
 	}
 };
 
@@ -848,13 +1126,12 @@ struct Teglatest: public Object
 	float c;
 	int res;
 
-	Teglatest(Vector _p0, Vector r, Vector u, float wa, float wb, float wc,
+	Teglatest(Vector _p0, Vector r_pref, Vector u, float wa, float wb, float wc,
 			int resolution)
 	{
 		p0 = _p0;
-		right = r.norm();
 		up = u.norm();
-		back = (up % right).norm();
+
 		a = wa;
 		b = wb;
 		c = wc;
@@ -1187,20 +1464,25 @@ struct Ember: public Object
 		Vector torzspos = fejpos
 				- Vector(-fejmeret.x * 0.5f, fejmeret.y + torzsmeret.y,
 						-torzsmeret.z * 0.5f);
+
 		torzs = new Teglatest(torzspos, Vector(-1, 0, 0), Vector(0, 1, 0),
 				torzsmeret.x, torzsmeret.y, torzsmeret.z, 10);
+
+		balkez_font = new Teglatest(
+				torzs->p0 + torzs->right * torzs->a + torzs->up * torzs->b,
+				Vector(1, -sqrt(3), 0), Vector(-sqrt(3), 1, 0), fejmeret.x,
+				torzsmeret.y, fejmeret.x, 10);
+		balkez_lent = NULL;
+		balkezfej = NULL;
+		jobbkez_font = NULL;
+		jobbkez_lent = NULL;
+		jobbkezfej = NULL;
 		ballab_font = NULL;
 		ballab_lent = NULL;
 		ballabfej = NULL;
 		jobblab_font = NULL;
 		jobblab_lent = NULL;
 		jobblabfej = NULL;
-		balkez_font = NULL;
-		balkez_lent = NULL;
-		balkezfej = NULL;
-		jobbkez_font = NULL;
-		jobbkez_lent = NULL;
-		jobbkezfej = NULL;
 	}
 
 	~Ember()
@@ -1224,7 +1506,6 @@ struct Ember: public Object
 	void draw()
 	{
 		fej->draw();
-		torzs->draw();
 	}
 };
 
@@ -1280,8 +1561,7 @@ struct Scene
 {
 	Camera *camera;
 
-	Light *lights[8];
-	int numLights;
+	Light *l0;
 
 	unsigned int texids;
 	unsigned char image[256][256][3];
@@ -1298,21 +1578,17 @@ struct Scene
 	Scene()
 	{
 		camera = NULL;
-		numLights = 0;
 		texids = 0;
 		b1 = b2 = b3 = NULL;
 		e1 = e2 = e3 = NULL;
 		p = NULL;
+		l0 = NULL;
 	}
 
 	~Scene()
 	{
-		if (camera)
-			delete camera;
-		for (int i = 0; i < numLights; ++i)
-		{
-			delete lights[i];
-		}
+		delete camera;
+		delete l0;
 		delete b1;
 		delete e1;
 		delete b2;
@@ -1329,7 +1605,7 @@ struct Scene
 		{
 			for (int y = 0; y < 256; ++y)
 			{
-				if ((x / 32) % 2 == 0)
+				if ((x / 16) % 2 == 0)
 				{
 					image[x][y][1] = 255;
 					image[x][y][2] = 255;
@@ -1352,9 +1628,7 @@ struct Scene
 		Color diffuse(1, 1, 1);
 		Color ambient(0.2, 0.2, 0.2);
 		Color specular(5, 5, 5);
-		Light *l0 = new Light(GL_LIGHT0, Vector(0, 0, 2), diffuse, ambient,
-				specular);
-		lights[numLights++] = l0;
+		l0 = new Light(GL_LIGHT0, Vector(0, 4, 2), diffuse, ambient, specular);
 
 		b1 = new Bringa(1.2, 2.5, 0.6, 0.04, 10);
 		e1 = new Ember(Vector(0, 2.1, 0), Vector(0.2, 0.2, 0.2),
@@ -1365,7 +1639,7 @@ struct Scene
 		b3 = new Bringa(1.2, 2.5, 0.6, 0.04, 10);
 		e3 = new Ember(Vector(0, 2.1, 0), Vector(0.2, 0.2, 0.2),
 				Vector(0.3, 0.8, 0.6), 1, 1);
-		p = new Paraboloid(Vector(0, -b1->h, 0), 200, 15, 500, 700);
+		p = new Paraboloid(Vector(0, -b1->h, 0), 0.003, 20, 500, 700);
 
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
@@ -1383,39 +1657,46 @@ struct Scene
 	void render()
 	{
 		camera->setOGL();
-		for (int i = 0; i < numLights; ++i)
-		{
-			lights[i]->setOGL();
-		}
+		l0->setOGL();
 
 		glPushMatrix();
-		glTranslatef(-2, -0.6, 0);
-		glRotatef(20, 0, 1, 0);
+		glTranslatef(0, -0.6, 0);
+//		ModelView.loadIdentity();
+//		ModelView.translate(0, 1, 0);
+//		glRotatef(20, 0, 1, 0);
 		b1->draw();
 		setMaterial(ZOLD);
 		e1->draw();
 		glPopMatrix();
-
-		glPushMatrix();
-		glTranslatef(0, -0.6, -4);
-		glRotatef(300, 0, 1, 0);
-		b2->draw();
-		setMaterial(ZOLD);
-		e2->draw();
-		glPopMatrix();
-
-		glPushMatrix();
-		glTranslatef(2, -0.6, 0);
-		glRotatef(210, 0, 1, 0);
-		b3->draw();
-		setMaterial(ZOLD);
-		e3->draw();
-		glPopMatrix();
-
+//
+////		glPushMatrix();
+////		glTranslatef(0, -0.6, -4);
+////		glRotatef(300, 0, 1, 0);
+////		b2->draw();
+////		setMaterial(ZOLD);
+////		e2->draw();
+////		glPopMatrix();
+////
+////
+////		glPushMatrix();
+////		glTranslatef(2, -0.6, 0);
+////		glRotatef(210, 0, 1, 0);
+////		b3->draw();
+////		setMaterial(ZOLD);
+////		e3->draw();
+////		glPopMatrix();
+//
 		setMaterial(FEHER);
 		glEnable(GL_TEXTURE_2D);
 		p->draw();
 		glDisable(GL_TEXTURE_2D);
+
+//		mxstack.push(ModelView);
+//		ModelView.translate(0, FOK / 100.0f, 0);
+//		ModelView.scale(1,1.0f/FOK,1);
+		Ellipszoid el(l0->pos, 0.4, 0.4, 0.4, 30, 30);
+		el.draw();
+//		ModelView = mxstack.pop();
 	}
 };
 
@@ -1430,8 +1711,51 @@ void onInitialization()
 	glEnable(GL_NORMALIZE);
 	glEnable(GL_LIGHTING);
 	glShadeModel(GL_SMOOTH);
-//	glLineWidth(2);
 
+	Matrix m;
+	float mv[4 * 4];
+	glMatrixMode(GL_MODELVIEW);
+	glTranslatef(0, 2, 0);
+//	glRotatef(120, 1, 0, 0);
+//	glScalef(2, 4, 10);
+	m.translate(0, 2, 0);
+//	m.rotate(120, 1, 0, 0);
+//	m.scale(2, 1, 1);
+
+	glGetFloatv(GL_MODELVIEW_MATRIX, mv);
+	printf("%s\n", "OpenGL mátrixa:");
+	for (int i = 0; i < 16; ++i)
+	{
+		printf("%.1f", mv[i]);
+		if (i % 4 == 3)
+		{
+			printf("\n");
+		}
+		else
+		{
+			printf(" | ");
+		}
+	}
+	printf("\n");
+	printf("========\n");
+	printf("Saját mátrix:\n");
+	for (int i = 0; i < 16; ++i)
+	{
+		printf("%.1f", m.mx[i]);
+		if (i % 4 == 3)
+		{
+			printf("\n");
+		}
+		else
+		{
+			printf(" | ");
+		}
+	}
+
+//	glLineWidth(2);
+//	exit(0);
+	glLoadIdentity();
+	ModelView.loadIdentity();
 	scene.build();
 }
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
@@ -1457,10 +1781,10 @@ void onKeyboard(unsigned char key, int x, int y)
 		scene.camera->eye.x += 1;
 		break;
 	case 'w':
-		scene.p->a -= 2;
+		scene.p->a *= 2;
 		break;
 	case 's':
-		scene.p->a += 2;
+		scene.p->a /= 2;
 		break;
 	case 'k':
 		FOK += 1;
@@ -1474,13 +1798,13 @@ void onKeyboard(unsigned char key, int x, int y)
 	case 'p':
 		scene.camera->fov -= 5.0f;
 		break;
-//	case 'f':
-//		line = !line;
-//		if (line)
-//			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-//		else
-//			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-//		break;
+	case 'f':
+		line = !line;
+		if (line)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		else
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		break;
 	default:
 		break;
 	}
@@ -1511,9 +1835,9 @@ void onIdle()
 {
 	long time = glutGet(GLUT_ELAPSED_TIME);	// program inditasa ota eltelt ido
 //	FOK = fmod(time / 10.0f, 360.0f);
-//	scene.lights[0]->pos.x = cos(fmod((time / 10) * 0.01, 360.0f));
-//	scene.lights[0]->pos.y = 0.5 * sin(fmod((time / 10) * 0.05, 360.0f));
-//	scene.lights[0]->pos.z = sin(fmod((time / 10) * 0.01, 360.0f));
+//	scene.lights[0]->pos.x = 2 * cos(fmod((time / 10) * 0.01, 360.0f));
+//	scene.lights[0]->pos.y = 3 + sin(fmod((time / 10) * 0.05, 360.0f));
+//	scene.lights[0]->pos.z = 2 * sin(fmod((time / 10) * 0.01, 360.0f));
 	glutPostRedisplay();
 
 }
