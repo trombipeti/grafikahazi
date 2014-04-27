@@ -201,8 +201,11 @@ enum MATERIAL
 	PIROS, ZOLD, KEK, EZUST, FEKETE, FEHER, BOR
 };
 
-void setMaterial(MATERIAL m)
+enum MATERIAL CURRENT_MATERIAL;
+
+void setMaterial(enum MATERIAL m)
 {
+	CURRENT_MATERIAL = m;
 	switch (m)
 	{
 	case PIROS:
@@ -540,158 +543,6 @@ Vector operator*(const Vector& v, const Matrix& m)
 	return ret;
 }
 
-struct Object
-{
-	virtual float x(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float y(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float z(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float xdu(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float ydu(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float zdu(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float xdv(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float ydv(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual float zdv(float u, float v)
-	{
-		return 0;
-	}
-
-	virtual Vector point(float u, float v, bool transform = true)
-	{
-		Vector ret = Vector(x(u, v), y(u, v), z(u, v));
-		if (transform)
-		{
-			ret = ret * ModelView;
-		}
-		return ret;
-	}
-
-	virtual Vector normal(float u, float v, bool transform = true)
-	{
-		Vector ret = (Vector(xdv(u, v), ydv(u, v), zdv(u, v))
-				% Vector(xdu(u, v), ydu(u, v), zdu(u, v)));
-		if (transform)
-		{
-			ret = ret * ModelView.invTrans();
-		}
-		return ret.norm();
-	}
-
-	virtual void draw() = 0;
-
-	void doDraw(float u_step, float v_step)
-	{
-		for (float u = 0; u <= 1.0f; u += u_step)
-		{
-			for (float v = 0; v <= 1.0f; v += v_step)
-			{
-				glBegin(GL_TRIANGLES);
-
-				Vector p0 = point(u, v);
-				Vector n0 = normal(u, v);
-				Vector p1 = point(MIN(u + u_step, 1.0f), v);
-				Vector n1 = normal(MIN(u + u_step, 1.0f), v);
-				Vector p2 = point(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
-				Vector n2 = normal(MIN(u + u_step, 1.0f),
-						MIN(v + v_step, 1.0f));
-				Vector p3 = point(u, MIN(v + v_step, 1.0f));
-				Vector n3 = normal(u, MIN(v + v_step, 1.0f));
-
-				glNormal3f(n0.x, n0.y, n0.z);
-				glVertex3f(p0.x, p0.y, p0.z);
-
-				glNormal3f(n1.x, n1.y, n1.z);
-				glVertex3f(p1.x, p1.y, p1.z);
-
-				glNormal3f(n2.x, n2.y, n2.z);
-				glVertex3f(p2.x, p2.y, p2.z);
-
-				glNormal3f(n0.x, n0.y, n0.z);
-				glVertex3f(p0.x, p0.y, p0.z);
-
-				glNormal3f(n2.x, n2.y, n2.z);
-				glVertex3f(p2.x, p2.y, p2.z);
-
-				glNormal3f(n3.x, n3.y, n3.z);
-				glVertex3f(p3.x, p3.y, p3.z);
-
-				glEnd();
-
-			}
-		}
-	}
-	virtual ~Object()
-	{
-	}
-};
-
-struct Camera
-{
-	Vector eye;
-	Vector lookat;
-	Vector vup;
-
-	float fov;
-	float asp;
-	float znear;
-	float zfar;
-
-	Camera(Vector theEye, Vector lookAt, Vector up, float fovy, float aspect,
-			float zNear, float zFar)
-	{
-		eye = theEye;
-		lookat = lookAt;
-		vup = up;
-		fov = fovy;
-		asp = aspect;
-		znear = zNear;
-		zfar = zFar;
-	}
-
-	void setOGL()
-	{
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-		gluPerspective(fov, asp, znear, zfar);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
-		gluLookAt(eye.x, eye.y, eye.z, lookat.x, lookat.y, lookat.z, vup.x,
-				vup.y, vup.z);
-		glRotatef(FOK, 0, 1, 0);
-	}
-};
-
 struct Light
 {
 	GLenum id;
@@ -709,7 +560,7 @@ struct Light
 		Is = _Is;
 		glEnable(id);
 
-		setOGL();
+//		setOGL();
 	}
 
 	void setOGL()
@@ -732,80 +583,9 @@ struct Light
 	}
 };
 
-//Light light0(GL_LIGHT0,Vector(0,2,2),)
+Light *l0 = NULL;
 
-struct Ellipszoid: public Object
-{
-	float a;
-	float b;
-	float c;
-
-	int sides;
-	int rings;
-
-	Ellipszoid(float _a, float _b, float _c, float numSides, float numRings)
-	{
-		a = _a;
-		b = _b;
-		c = _c;
-		sides = numSides;
-		rings = numRings;
-	}
-
-	float x(float u, float v)
-	{
-		return a * sin(2 * M_PI * u) * cos(2 * M_PI * v);
-	}
-
-	float y(float u, float v)
-	{
-		return b * sin(2 * M_PI * u) * sin(2 * M_PI * v);
-	}
-
-	float z(float u, float v)
-	{
-		return c * cos(2 * M_PI * u);
-	}
-
-	float xdu(float u, float v)
-	{
-		return a * cos(2 * M_PI * u) * -cos(2 * M_PI * v);
-	}
-
-	float ydu(float u, float v)
-	{
-		return b * cos(2 * M_PI * u) * -sin(2 * M_PI * v);
-	}
-
-	float zdu(float u, float v)
-	{
-		return sin(2 * M_PI * u);
-	}
-
-	float xdv(float u, float v)
-	{
-		return (-1.0f) * sin(2 * M_PI * v);
-	}
-
-	float ydv(float u, float v)
-	{
-		return cos(2 * M_PI * v);
-	}
-
-	float zdv(float u, float v)
-	{
-		return 0;
-	}
-	void draw()
-	{
-		float u_step = 1.0f / sides;
-		float v_step = 1.0f / rings;
-
-		doDraw(u_step, v_step);
-	}
-};
-
-struct Paraboloid: public Object
+struct Paraboloid
 {
 	float h;
 	float a;
@@ -865,6 +645,27 @@ struct Paraboloid: public Object
 	float zdv(float u, float v)
 	{
 		return (1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v);
+	}
+
+	Vector point(float u, float v, bool transform = true)
+	{
+		Vector ret = Vector(x(u, v), y(u, v), z(u, v));
+		if (transform)
+		{
+			ret = ret * ModelView;
+		}
+		return ret;
+	}
+
+	Vector normal(float u, float v, bool transform = true)
+	{
+		Vector ret = (Vector(xdv(u, v), ydv(u, v), zdv(u, v))
+				% Vector(xdu(u, v), ydu(u, v), zdu(u, v)));
+		if (transform)
+		{
+			ret = ret * ModelView.invTrans();
+		}
+		return ret.norm();
 	}
 
 	void draw()
@@ -949,6 +750,261 @@ struct Paraboloid: public Object
 	}
 };
 
+struct Object
+{
+	virtual float x(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float y(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float z(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float xdu(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float ydu(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float zdu(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float xdv(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float ydv(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual float zdv(float u, float v)
+	{
+		return 0;
+	}
+
+	virtual Vector point(float u, float v, bool transform = true)
+	{
+		Vector ret = Vector(x(u, v), y(u, v), z(u, v));
+		if (transform)
+		{
+			ret = ret * ModelView;
+		}
+		return ret;
+	}
+
+	virtual Vector normal(float u, float v, bool transform = true)
+	{
+		Vector ret = (Vector(xdv(u, v), ydv(u, v), zdv(u, v))
+				% Vector(xdu(u, v), ydu(u, v), zdu(u, v)));
+		if (transform)
+		{
+			ret = ret * ModelView.invTrans();
+		}
+		return ret.norm();
+	}
+
+	virtual void draw(Paraboloid *p = NULL) = 0;
+
+	void doDraw(float u_step, float v_step, Paraboloid *p = NULL)
+	{
+		for (float u = 0; u <= 1.0f; u += u_step)
+		{
+			for (float v = 0; v <= 1.0f; v += v_step)
+			{
+				Vector p0 = point(u, v);
+				Vector n0 = normal(u, v);
+				Vector p1 = point(MIN(u + u_step, 1.0f), v);
+				Vector n1 = normal(MIN(u + u_step, 1.0f), v);
+				Vector p2 = point(MIN(u + u_step, 1.0f), MIN(v + v_step, 1.0f));
+				Vector n2 = normal(MIN(u + u_step, 1.0f),
+						MIN(v + v_step, 1.0f));
+				Vector p3 = point(u, MIN(v + v_step, 1.0f));
+				Vector n3 = normal(u, MIN(v + v_step, 1.0f));
+
+				if (p != NULL)
+				{
+					enum MATERIAL m = CURRENT_MATERIAL;
+					float t0 = p->intersect(l0->pos, (p0 - l0->pos).norm());
+					float t1 = p->intersect(l0->pos, (p1 - l0->pos).norm());
+					float t2 = p->intersect(l0->pos, (p2 - l0->pos).norm());
+					float t3 = p->intersect(l0->pos, (p3 - l0->pos).norm());
+					if (t0 > 0 && t1 > 0 && t2 > 0)
+					{
+						Vector i0 = l0->pos + (p0 - l0->pos).norm() * t0;
+						Vector i1 = l0->pos + (p1 - l0->pos).norm() * t1;
+						Vector i2 = l0->pos + (p2 - l0->pos).norm() * t2;
+						setMaterial(FEKETE);
+
+						glBegin(GL_TRIANGLES);
+
+						glVertex3f(i0.x, i0.y, i0.z);
+						glVertex3f(i1.x, i1.y, i1.z);
+						glVertex3f(i2.x, i2.y, i2.z);
+
+						if (t3 > 0)
+						{
+							Vector i3 = l0->pos + (p3 - l0->pos).norm() * t3;
+							glVertex3f(i0.x, i0.y, i0.z);
+							glVertex3f(i2.x, i2.y, i2.z);
+							glVertex3f(i3.x, i3.y, i3.z);
+						}
+						glEnd();
+						setMaterial(m);
+					}
+				}
+
+				glBegin(GL_TRIANGLES);
+
+				glNormal3f(n0.x, n0.y, n0.z);
+				glVertex3f(p0.x, p0.y, p0.z);
+
+				glNormal3f(n1.x, n1.y, n1.z);
+				glVertex3f(p1.x, p1.y, p1.z);
+
+				glNormal3f(n2.x, n2.y, n2.z);
+				glVertex3f(p2.x, p2.y, p2.z);
+
+				glNormal3f(n0.x, n0.y, n0.z);
+				glVertex3f(p0.x, p0.y, p0.z);
+
+				glNormal3f(n2.x, n2.y, n2.z);
+				glVertex3f(p2.x, p2.y, p2.z);
+
+				glNormal3f(n3.x, n3.y, n3.z);
+				glVertex3f(p3.x, p3.y, p3.z);
+
+				glEnd();
+
+			}
+		}
+	}
+	virtual ~Object()
+	{
+	}
+};
+
+struct Camera
+{
+	Vector eye;
+	Vector lookat;
+	Vector vup;
+
+	float fov;
+	float asp;
+	float znear;
+	float zfar;
+
+	Camera(Vector theEye, Vector lookAt, Vector up, float fovy, float aspect,
+			float zNear, float zFar)
+	{
+		eye = theEye;
+		lookat = lookAt;
+		vup = up;
+		fov = fovy;
+		asp = aspect;
+		znear = zNear;
+		zfar = zFar;
+	}
+
+	void setOGL()
+	{
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		gluPerspective(fov, asp, znear, zfar);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		gluLookAt(eye.x, eye.y, eye.z, lookat.x, lookat.y, lookat.z, vup.x,
+				vup.y, vup.z);
+		glRotatef(FOK, 0, 1, 0);
+	}
+};
+
+struct Ellipszoid: public Object
+{
+	float a;
+	float b;
+	float c;
+
+	int sides;
+	int rings;
+
+	Ellipszoid(float _a, float _b, float _c, float numSides, float numRings)
+	{
+		a = _a;
+		b = _b;
+		c = _c;
+		sides = numSides;
+		rings = numRings;
+	}
+
+	float x(float u, float v)
+	{
+		return a * sin(2 * M_PI * u) * cos(2 * M_PI * v);
+	}
+
+	float y(float u, float v)
+	{
+		return b * sin(2 * M_PI * u) * sin(2 * M_PI * v);
+	}
+
+	float z(float u, float v)
+	{
+		return c * cos(2 * M_PI * u);
+	}
+
+	float xdu(float u, float v)
+	{
+		return a * cos(2 * M_PI * u) * -cos(2 * M_PI * v);
+	}
+
+	float ydu(float u, float v)
+	{
+		return b * cos(2 * M_PI * u) * -sin(2 * M_PI * v);
+	}
+
+	float zdu(float u, float v)
+	{
+		return sin(2 * M_PI * u);
+	}
+
+	float xdv(float u, float v)
+	{
+		return (-1.0f) * sin(2 * M_PI * v);
+	}
+
+	float ydv(float u, float v)
+	{
+		return cos(2 * M_PI * v);
+	}
+
+	float zdv(float u, float v)
+	{
+		return 0;
+	}
+	void draw(Paraboloid *p)
+	{
+		float u_step = 1.0f / sides;
+		float v_step = 1.0f / rings;
+
+		doDraw(u_step, v_step, p);
+	}
+};
+
 struct Henger: public Object
 {
 	float r;
@@ -1009,12 +1065,12 @@ struct Henger: public Object
 		return -h;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		float u_step = 1.0f / sides;
 		float v_step = (h / rings);
 
-		doDraw(u_step, v_step);
+		doDraw(u_step, v_step, p);
 
 		for (float u = 0; u < 1.0f; u += u_step)
 		{
@@ -1106,12 +1162,12 @@ struct Teglalap: public Object
 		return 1;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		float u_step = 1.0f / res;
 		float v_step = 1.0f / res;
 
-		doDraw(u_step, v_step);
+		doDraw(u_step, v_step, p);
 	}
 
 };
@@ -1131,7 +1187,7 @@ struct Teglatest: public Object
 		res = resolution;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		Teglalap B(a, c, res);
 		Teglalap D(a, b, res);
@@ -1140,34 +1196,34 @@ struct Teglatest: public Object
 		PUSH_MX;
 		ModelView.translate(a, 0, 0);
 		ModelView.rotate(180, 0, 0, 1);
-		D.draw();
+		D.draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.rotate(90, 0, 0, 1);
-		L.draw();
+		L.draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.rotate(270, 1, 0, 0);
-		B.draw();
+		B.draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(0, c, 0);
-		D.draw();
+		D.draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(a, c, 0);
 		ModelView.rotate(270, 0, 0, 1);
-		L.draw();
+		L.draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(0, c, b);
 		ModelView.rotate(90, 1, 0, 0);
-		B.draw();
+		B.draw(p);
 		POP_MX;
 
 	}
@@ -1236,14 +1292,14 @@ struct Torus: public Object
 		return 0;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		float u_step = (1.0f / sides);
 		float v_step = (1.0f / rings);
 
 //		glRotatef(FOK, 0, 1, 0);
 
-		doDraw(u_step, v_step);
+		doDraw(u_step, v_step, p);
 	}
 };
 
@@ -1265,7 +1321,7 @@ struct Kerek: public Object
 		}
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		setMaterial(EZUST);
 		for (int i = 0; i < kulloszam; ++i)
@@ -1274,18 +1330,18 @@ struct Kerek: public Object
 			ModelView.rotate(90, 1, 0, 0);
 			float rot = (360.0f / kulloszam) * i;
 			ModelView.rotate(rot, 0, 1, 0);
-			kullok[i]->draw();
+			kullok[i]->draw(p);
 			POP_MX;
 		}
 		PUSH_MX;
 		ModelView.translate(0, 0, kerekagy->h * 0.5f);
-		kerekagy->draw();
+		kerekagy->draw(p);
 		POP_MX;
 		setMaterial(FEKETE);
 		float sp[4] =
 		{ 0, 0, 0, 1 };
 		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
-		gumi->draw();
+		gumi->draw(p);
 	}
 
 	~Kerek()
@@ -1335,18 +1391,18 @@ struct BringaVaz: public Object
 		delete pedalcso;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		PUSH_MX;
 		ModelView.rotate(90, 1, 0, 0);
 		ModelView.translate(w * -0.1f, 0, 0);
-		kozep->draw();
+		kozep->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(w * -0.1f, h - csoR, 0);
 		ModelView.rotate(270, 0, 1, 0);
-		jobbfont->draw();
+		jobbfont->draw(p);
 		POP_MX;
 
 		PUSH_MX;
@@ -1354,22 +1410,22 @@ struct BringaVaz: public Object
 		ModelView.rotate(270, 0, 1, 0);
 		float c = acos(MIN(h / jobblent->h, jobblent->h / h));
 		ModelView.rotate(90 - c * (180.0 / M_PI), 1, 0, 0);
-		jobblent->draw();
+		jobblent->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(w * -0.1f, 0, 4 * csoR);
-		pedalcso->draw();
+		pedalcso->draw(p);
 		ModelView.translate(0, h - csoR, 0);
-		pedalcso->draw();
+		pedalcso->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(w * -0.1f, 0, 3 * csoR);
 		ModelView.rotate(90, 0, 1, 0);
-		ballent->draw();
+		ballent->draw(p);
 		ModelView.translate(6 * csoR, 0, 0);
-		ballent->draw();
+		ballent->draw(p);
 		POP_MX;
 
 		PUSH_MX;
@@ -1377,9 +1433,9 @@ struct BringaVaz: public Object
 		ModelView.rotate(90, 0, 1, 0);
 		c = atan(MIN(h / ballent->h, ballent->h / h));
 		ModelView.rotate(90 + c * (180.0 / M_PI), 1, 0, 0);
-		balfont->draw();
+		balfont->draw(p);
 		ModelView.translate(6 * csoR, 0, 0);
-		balfont->draw();
+		balfont->draw(p);
 		POP_MX;
 	}
 
@@ -1415,11 +1471,11 @@ struct Kormanymu: public Object
 		delete kormany;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		PUSH_MX;
 //		ModelView.rotate(FOK * -1, 0, 0, 1);
-		kerek->draw();
+		kerek->draw(p);
 		POP_MX;
 
 		setMaterial(PIROS);
@@ -1427,30 +1483,30 @@ struct Kormanymu: public Object
 		ModelView.translate(0, (-1.0f) * kerek->kerekagy->r,
 				kerek->gumi->inR * 2.0f);
 		ModelView.rotate(90, 1, 0, 0);
-		balvilla->draw();
+		balvilla->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(0, (-1.0f) * kerek->kerekagy->r,
 				kerek->gumi->inR * -2.0f);
 		ModelView.rotate(90, 1, 0, 0);
-		jobbvilla->draw();
+		jobbvilla->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(0, jobbvilla->h, villateteje->h * 0.5f);
-		villateteje->draw();
+		villateteje->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(0, jobbvilla->h, 0);
 		ModelView.rotate(90, 1, 0, 0);
-		villanyak->draw();
+		villanyak->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(0, jobbvilla->h + villanyak->h, kormany->h * 0.5f);
-		kormany->draw();
+		kormany->draw(p);
 		POP_MX;
 	}
 
@@ -1485,7 +1541,7 @@ struct Ember: public Object
 		delete kez;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		setMaterial(KEK);
 		PUSH_MX; // 1
@@ -1493,11 +1549,11 @@ struct Ember: public Object
 
 		PUSH_MX; // 2
 		ModelView.translate(0, 0, torzs->b * 0.49f - lab->b);
-		lab->draw();
+		lab->draw(p);
 
 		PUSH_MX; // 3
 		ModelView.translate(0, 0, -torzs->b * 0.98f + lab->b);
-		lab->draw();
+		lab->draw(p);
 		POP_MX; // 2
 
 		POP_MX; // 1
@@ -1506,20 +1562,20 @@ struct Ember: public Object
 		setMaterial(ZOLD);
 		ModelView.translate(0, lab->c * 0.9, -0.5f * torzs->b);
 		ModelView.rotate(10, 0, 0, 1);
-		torzs->draw();
+		torzs->draw(p);
 
 		PUSH_MX; // 3
 		ModelView.translate(torzs->a - kez->b, kez->c, 0);
 		ModelView.rotate(295, 0, 0, 1);
-		kez->draw();
+		kez->draw(p);
 
 		ModelView.translate(0, 0, torzs->b - kez->b);
-		kez->draw();
+		kez->draw(p);
 		POP_MX; // 2
 
 		setMaterial(BOR);
 		ModelView.translate(torzs->a + fej->a, 0, torzs->b * 0.5f);
-		fej->draw();
+		fej->draw(p);
 
 		POP_MX; // 1
 
@@ -1587,31 +1643,31 @@ struct Bringas: public Object
 			prev_u = u;
 			prev_v = v;
 		}
-		draw();
+		draw(p);
 		POP_MX;
 	}
 
-	void draw()
+	void draw(Paraboloid *p)
 	{
 		PUSH_MX;
 		ModelView.translate((-1.0f) * w * 0.45f, 0, 0);
-		hatsokerek->draw();
+		hatsokerek->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(w * 0.45f, 0, 0);
 //		ModelView.rotate(FOK, 0, 1, 0);
-		kormany->draw();
+		kormany->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		setMaterial(PIROS);
-		vaz->draw();
+		vaz->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		ModelView.translate(-w * 0.1f, 0, 0);
-		rider->draw();
+		rider->draw(p);
 		POP_MX;
 	}
 };
@@ -1622,8 +1678,6 @@ const int screenHeight = 600;
 struct Scene
 {
 	Camera *camera;
-
-	Light *l0;
 
 	unsigned int texids;
 	unsigned char image[256][256][3];
@@ -1640,17 +1694,17 @@ struct Scene
 		texids = 0;
 		b1 = b2 = b3 = NULL;
 		p = NULL;
-		l0 = NULL;
 	}
 
 	~Scene()
 	{
 		delete camera;
-		delete l0;
 		delete b1;
 		delete b2;
 		delete b3;
 		delete p;
+
+		delete l0;
 
 	}
 
@@ -1683,10 +1737,8 @@ struct Scene
 		camera = new Camera(Vector(0, 1.3, 4), Vector(0, 0, 0), Vector(0, 1, 0),
 				70.0f, 1.0f, 0.5f, 100.0f);
 
-		Color diffuse(1, 1, 1);
-		Color ambient(0.2, 0.2, 0.2);
-		Color specular(5, 5, 5);
-		l0 = new Light(GL_LIGHT0, Vector(0, 2, 4), diffuse, ambient, specular);
+		l0 = new Light(GL_LIGHT0, Vector(1, 2, 4), Color(1, 1, 1),
+				Color(0.4, 0.4, 0.4), Color(5, 5, 5));
 
 		b1 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b2 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
@@ -1710,7 +1762,10 @@ struct Scene
 	void render()
 	{
 		camera->setOGL();
+//		l0.pos = Vector(0,0,0);
 		l0->setOGL();
+//		Light l(GL_LIGHT0, Vector(0, 0, 0), ambient, diffuse, specular);
+//		l.setOGL();
 
 		PUSH_MX;
 //		ModelView.rotate(340, 0, 1, 0);
