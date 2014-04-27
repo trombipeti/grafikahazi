@@ -8,7 +8,7 @@ Készítsen kerékpáros katlant legalább három biciklizővel.
 
  [X] A kerék foroghat, a kormány az első kerékkel elfordítható.
 
- [ ] A kerékpáros feje ellipszoid, testét és végtagjait téglatestekből kell összerakni,
+ [X] A kerékpáros feje ellipszoid, testét és végtagjait téglatestekből kell összerakni,
 	 a kerékpáros nem fog tekerni, ezért merevnek feltételezhető.
 
  [X] A teret egy mozgó fényforrás világítja meg.

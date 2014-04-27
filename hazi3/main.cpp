@@ -304,7 +304,7 @@ void setMaterial(MATERIAL m)
 		{ 1, 1, 1, 1 };
 		float sp[4] =
 		{ 1, 1, 1, 1 };
-		float sh = 0;
+		float sh = 128;
 		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
@@ -715,7 +715,7 @@ struct Light
 	void setOGL()
 	{
 		float p[4] =
-		{ pos.x, pos.y, pos.z, 1 };
+		{ pos.x, pos.y, pos.z, 1.0f };
 		float i_d[4] =
 		{ Id.r, Id.g, Id.b, 0 };
 		float i_a[4] =
@@ -870,11 +870,11 @@ struct Paraboloid: public Object
 	void draw()
 	{
 
-		float u_step = (h / rings) * 0.00001;
+		float u_step = (h / rings) * 0.0000001;
 		float v_step = 1.0f / sides;
 		for (float u = 0; u < 1.0f; u += u_step)
 		{
-			u_step *= 2;
+			u_step = u_step * 2;
 			for (float v = 0; v < 1.0f; v += v_step)
 			{
 				Vector p0 = point(u, v);
@@ -1022,80 +1022,6 @@ struct Henger: public Object
 			glVertex3f(p2.x, p2.y, p2.z);
 			glEnd();
 		}
-	}
-
-};
-
-struct UjHenger: public Object
-{
-	Vector p0;
-	Vector p1;
-	Vector d;
-	Vector dnorm;
-	float r;
-	int sides;
-
-	UjHenger(Vector p, Vector q, float rad, int numSides)
-	{
-		p0 = p;
-		p1 = q;
-		d = (p - q);
-		dnorm = d.norm();
-		r = rad;
-		sides = numSides;
-	}
-
-	float x(float u, float v)
-	{
-		return p0.x + r * cos(2 * M_PI * u) + d.x * v;
-	}
-
-	float y(float u, float v)
-	{
-		return p0.y + r * sin(2 * M_PI * u) + d.y * v;
-	}
-
-	float z(float u, float v)
-	{
-		return p0.z;
-	}
-
-	float xdu(float u, float v)
-	{
-		return (-1.0f) * r * sin(2 * M_PI * u);
-	}
-
-	float ydu(float u, float v)
-	{
-		return r * cos(2 * M_PI * u);
-	}
-
-	float zdu(float u, float v)
-	{
-		return 0;
-	}
-
-	float xdv(float u, float v)
-	{
-		return d.x;
-	}
-
-	float ydv(float u, float v)
-	{
-		return d.y;
-	}
-
-	float zdv(float u, float v)
-	{
-		return d.z;
-	}
-
-	void draw()
-	{
-		float u_step = 1.0f / sides;
-		float v_step = 0.5f;
-
-		doDraw(u_step, v_step);
 	}
 
 };
@@ -1515,8 +1441,6 @@ struct Ember: public Object
 	Teglatest *labfej;
 	Teglatest *kez;
 
-	float w, h, d;
-
 	Ember(Vector fejmeret, Vector torzsmeret, float labhossz)
 	{
 		fej = new Ellipszoid(fejmeret.x, fejmeret.y, fejmeret.z,
@@ -1524,12 +1448,9 @@ struct Ember: public Object
 				MAX(fejmeret.z * 20, 20.0f));
 		torzs = new Teglatest(torzsmeret.x, torzsmeret.y, torzsmeret.z, 10);
 
-		kez = new Teglatest(torzsmeret.x, fejmeret.x, fejmeret.x, 10);
-		lab = new Teglatest(torzsmeret.z, torzsmeret.y * 0.4f, labhossz, 10);
+		kez = new Teglatest(torzsmeret.x * 0.95f, fejmeret.x, fejmeret.x, 10);
+		lab = new Teglatest(torzsmeret.z, torzsmeret.y * 0.3f, labhossz, 10);
 		labfej = NULL;
-		w = torzsmeret.x;
-		h = torzsmeret.z + labhossz + fejmeret.z;
-		d = torzsmeret.y;
 	}
 
 	~Ember()
@@ -1544,45 +1465,42 @@ struct Ember: public Object
 	void draw()
 	{
 		setMaterial(KEK);
-		PUSH_MX;
+		PUSH_MX; // 1
 		ModelView.rotate(20, 0, 0, 1);
-		lab->draw();
-		PUSH_MX;
-		ModelView.translate(0,0,-torzs->b);
+
+		PUSH_MX; // 2
+		ModelView.translate(0, 0, torzs->b * 0.49f - lab->b);
 		lab->draw();
 
-		POP_MX;
-		POP_MX;
+		PUSH_MX; // 3
+		ModelView.translate(0, 0, -torzs->b * 0.98f + lab->b);
+		lab->draw();
+		POP_MX; // 2
 
-//		PUSH_MX;
-////		ModelView.translate(0, 0, 0);
-////		ModelView.rotate(315, 0, 0, 1);
-//		setMaterial(BOR);
-//		PUSH_MX;
-//		ModelView.translate(0,torzs->c + fej->c + h, 0);
-//		fej->draw();
-//		POP_MX;
-//		setMaterial(ZOLD);
-//		PUSH_MX;
-//		ModelView.translate(-fej->b * 0.9, -fej->a * 0.9, torzs->b * -0.5f);
-//		ModelView.rotate(270, 0, 0, 1);
-//		torzs->draw();
-//		POP_MX;
-//
-//		PUSH_MX;
-//		ModelView.translate(-fej->b * 0.9, -fej->a - kez->c,
-//				torzs->b * -0.5f - kez->b);
-//		ModelView.rotate(350, 0, 0, 1);
-//		kez->draw();
-//		POP_MX;
-//
-//		PUSH_MX;
-//		ModelView.translate(-fej->b * 0.9, -fej->a - kez->c, torzs->b * 0.5f);
-//		ModelView.rotate(350, 0, 0, 1);
-//		kez->draw();
-//		POP_MX;
-//
-//		POP_MX;
+		POP_MX; // 1
+
+		PUSH_MX; // 2
+		setMaterial(ZOLD);
+		ModelView.translate(0, lab->c * 0.9, -0.5f * torzs->b);
+		ModelView.rotate(10, 0, 0, 1);
+		torzs->draw();
+
+		PUSH_MX; // 3
+		ModelView.translate(torzs->a - kez->b, kez->c, 0);
+		ModelView.rotate(295, 0, 0, 1);
+		kez->draw();
+
+		ModelView.translate(0, 0, torzs->b - kez->b);
+		kez->draw();
+		POP_MX; // 2
+
+		setMaterial(BOR);
+		ModelView.translate(torzs->a + fej->a, 0, torzs->b * 0.5f);
+		fej->draw();
+
+		POP_MX; // 1
+
+		POP_MX; // 0
 	}
 };
 
@@ -1592,6 +1510,8 @@ struct Bringas: public Object
 	Kormanymu *kormany;
 	BringaVaz *vaz;
 	Ember *rider;
+
+	float rotation;
 
 	float h;
 	float w;
@@ -1604,7 +1524,8 @@ struct Bringas: public Object
 		kormany = new Kormanymu(h, kerekR, gumiR, kulloSzam);
 		vaz = new BringaVaz(h * 0.85f, w * 0.9f, gumiR);
 		rider = new Ember(Vector(kerekR * 0.3f, kerekR * 0.3f, kerekR * 0.3f),
-				Vector(kerekR * 1.7f, height * 0.5f, kerekR * 0.4f), height);
+				Vector(kerekR * 2.0f, height * 0.8f, kerekR * 0.4f), height);
+		rotation = 0;
 	}
 
 	~Bringas()
@@ -1627,13 +1548,15 @@ struct Bringas: public Object
 		{
 			c = (c < 0 ? -1 : 1);
 		}
-//		PUSH_MX;
+		PUSH_MX;
+		ModelView.loadIdentity();
 		ModelView.translate(pp.x, pp.y + h * 0.5f, pp.z);
 		if (!isnan(c))
 		{
 			ModelView.rotate(acos(c) * (180.0f / M_PI) + 180.0f, axis.x, axis.y,
 					axis.z);
 		}
+		ModelView.rotate(rotation, 0, 1, 0);
 		if (u != prev_u || v != prev_v)
 		{
 //			printf("Ide jöttem (%.1f, %.1f): %f, %f, %f\n", u, v, pp.x, pp.y,
@@ -1642,7 +1565,7 @@ struct Bringas: public Object
 			prev_v = v;
 		}
 		draw();
-//		POP_MX;
+		POP_MX;
 	}
 
 	void draw()
@@ -1664,6 +1587,7 @@ struct Bringas: public Object
 		POP_MX;
 
 		PUSH_MX;
+		ModelView.translate(-w * 0.1f, 0, 0);
 		rider->draw();
 		POP_MX;
 	}
@@ -1713,17 +1637,20 @@ struct Scene
 		{
 			for (int y = 0; y < 256; ++y)
 			{
-				if ((x / 16) % 2 == 0)
+				if ((x / 8) % 2 == 0 || (y / 8) % 2 == 1)
 				{
 					image[x][y][1] = 255;
-					image[x][y][2] = 255;
+					image[x][y][2] = cos(x / 265.0f) * 255;
 				}
-				else
+				else if ((y / 8) % 2 == 0 || (x / 8) % 2 == 1)
 				{
-					image[x][y][1] = 0;
-					image[x][y][1] = 0;
+					image[x][y][1] = sin(y / 265.0f) * 16;
+					image[x][y][2] = sin(y / 265.0f) * 255;
 				}
-				image[x][y][0] = 255;
+				image[x][y][0] = 10
+						* sin(
+								((y << x) ^ 0x23434) * 0.435634
+										* fmod(cos(x >> 3 | 0x332), 12));
 			}
 		}
 	}
@@ -1731,12 +1658,12 @@ struct Scene
 	void build()
 	{
 		camera = new Camera(Vector(0, 1.3, 4), Vector(0, 0, 0), Vector(0, 1, 0),
-				80.0f, 1.0f, 0.5f, 100.0f);
+				70.0f, 1.0f, 0.5f, 100.0f);
 
 		Color diffuse(1, 1, 1);
 		Color ambient(0.2, 0.2, 0.2);
 		Color specular(5, 5, 5);
-		l0 = new Light(GL_LIGHT0, Vector(0, 4, 2), diffuse, ambient, specular);
+		l0 = new Light(GL_LIGHT0, Vector(0, 2, 4), diffuse, ambient, specular);
 
 		b1 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b2 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
@@ -1763,8 +1690,9 @@ struct Scene
 		l0->setOGL();
 
 		PUSH_MX;
-//		ModelView.translate(0, b1->h, -1);
-		b1->drawOnParaboloid(p, 0.003, 0);
+//		ModelView.rotate(340, 0, 1, 0);
+		b1->rotation = 225.0f;
+		b1->drawOnParaboloid(p, 0.001, 0.875);
 		POP_MX;
 //
 		PUSH_MX;
@@ -1772,14 +1700,14 @@ struct Scene
 		POP_MX;
 
 		PUSH_MX;
-//		b3->draw();
+		b3->rotation = 300.0f;
+		b3->drawOnParaboloid(p, 0.002, 0.7);
 		POP_MX;
 
 		setMaterial(FEHER);
 		glEnable(GL_TEXTURE_2D);
 		p->draw();
 		glDisable(GL_TEXTURE_2D);
-
 	}
 };
 
@@ -1871,16 +1799,22 @@ void onKeyboard(unsigned char key, int x, int y)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		break;
 	case 'h':
-		scene.camera->eye.y -= 0.5;
+		scene.camera->lookat.y -= 0.5;
 		break;
 	case 'z':
+		scene.camera->lookat.y += 0.5;
+		break;
+	case 'g':
+		scene.camera->eye.y -= 0.5;
+		break;
+	case 't':
 		scene.camera->eye.y += 0.5;
 		break;
 	case 'u':
-		FOK -= 1;
+		FOK += 1;
 		break;
 	case 'i':
-		FOK += 1;
+		FOK -= 1;
 		break;
 	default:
 		break;
