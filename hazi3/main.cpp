@@ -61,7 +61,6 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-//#include <stdio.h>
 float FOK = 0;
 float P = 0;
 
@@ -379,7 +378,6 @@ struct Matrix
 	void rotate(float angle, float x, float y, float z, bool comp_inv = true)
 	{
 		Matrix tr;
-		// [0,u2sw ×u2w×w ×u]
 		float fok = angle * (M_PI / 180.0f);
 		Vector w = sin(fok * 0.5f) * (Vector(x, y, z).norm());
 		Vector u0 = Vector(1, 0, 0);
@@ -560,7 +558,6 @@ struct Light
 		Is = _Is;
 		glEnable(id);
 
-//		setOGL();
 	}
 
 	void setOGL()
@@ -671,11 +668,10 @@ struct Paraboloid
 	void draw()
 	{
 
-		float u_step = (h / rings) * 0.0000001;
+		float u_step = (h / rings);
 		float v_step = 1.0f / sides;
 		for (float u = 0; u < 1.0f; u += u_step)
 		{
-			u_step = u_step * 2;
 			for (float v = 0; v < 1.0f; v += v_step)
 			{
 				Vector p0 = point(u, v);
@@ -713,7 +709,6 @@ struct Paraboloid
 				glNormal3f(n3.x, n3.y, n3.z);
 				glVertex3f(p3.x, p3.y, p3.z);
 				glEnd();
-//				v += 0.01f;
 			}
 		}
 
@@ -1638,8 +1633,6 @@ struct Bringas: public Object
 		ModelView.rotate(rotation, 0, 1, 0);
 		if (u != prev_u || v != prev_v)
 		{
-//			printf("Ide jöttem (%.1f, %.1f): %f, %f, %f\n", u, v, pp.x, pp.y,
-//					pp.z);
 			prev_u = u;
 			prev_v = v;
 		}
@@ -1656,7 +1649,7 @@ struct Bringas: public Object
 
 		PUSH_MX;
 		ModelView.translate(w * 0.45f, 0, 0);
-//		ModelView.rotate(FOK, 0, 1, 0);
+		ModelView.rotate(30, 0, 1, 0);
 		kormany->draw(p);
 		POP_MX;
 
@@ -1734,17 +1727,17 @@ struct Scene
 
 	void build()
 	{
-		camera = new Camera(Vector(0, 1.3, 4), Vector(0, 0, 0), Vector(0, 1, 0),
-				70.0f, 1.0f, 0.5f, 100.0f);
+		camera = new Camera(Vector(0, 13, 13), Vector(0, 0.5, 0),
+				Vector(0, 1, 0), 20.0f, 1.0f, 1.0f, 100.0f);
 
-		l0 = new Light(GL_LIGHT0, Vector(1, 2, 4), Color(1, 1, 1),
+		l0 = new Light(GL_LIGHT0, Vector(0, 2, 2), Color(1, 1, 1),
 				Color(0.4, 0.4, 0.4), Color(5, 5, 5));
 
 		b1 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b2 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b3 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 
-		p = new Paraboloid(0.01, 10, 20, 200);
+		p = new Paraboloid(0.01, 10, 200, 500);
 
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
