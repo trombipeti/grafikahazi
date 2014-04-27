@@ -77,6 +77,23 @@ T MIN(T a, T b)
 	return (a < b ? a : b);
 }
 
+float doround(float a)
+{
+	if (fabs(a) < 0.0001)
+	{
+		return 0.0f;
+	}
+	if (a < -1.0f + 0.0001)
+	{
+		return -1.0f;
+	}
+	if (a > 1.0f - 0.0001)
+	{
+		return 1.0f;
+	}
+	return a;
+}
+
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
@@ -133,7 +150,9 @@ struct Vector
 	Vector round() const
 	{
 		Vector ret;
-
+		ret.x = doround(x);
+		ret.y = doround(y);
+		ret.z = doround(z);
 		return ret;
 	}
 };
@@ -1554,7 +1573,7 @@ struct Bringas: public Object
 		Vector pp = p->point(u, v, false);
 		Vector pn = p->normal(u, v);
 		Vector axis = Vector(0, 1, 0) % pn;
-		float c = Vector(0, 1, 0) * pn;
+		float c = Vector(0, 1, 0) * pn.round();
 		if (fabs(c) > 0.999)
 		{
 			c = (c < 0 ? -1 : 1);
@@ -1563,7 +1582,6 @@ struct Bringas: public Object
 		ModelView.translate(pp.x, pp.y + h * 0.5f, pp.z);
 		if (!isnan(c))
 		{
-			printf("Forgatok ennyivel: %f\n", acos(c) * (180.0f / M_PI) + 180.0f);
 			ModelView.rotate(acos(c) * (180.0f / M_PI) + 180.0f, axis.x, axis.y,
 					axis.z);
 		}
@@ -1785,6 +1803,12 @@ void onKeyboard(unsigned char key, int x, int y)
 		break;
 	case 'z':
 		scene.p->rings *= 2;
+		break;
+	case 'u':
+		FOK -= 1;
+		break;
+	case 'i':
+		FOK += 1;
 		break;
 	default:
 		break;
