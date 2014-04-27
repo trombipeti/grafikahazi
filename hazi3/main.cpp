@@ -61,7 +61,7 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-#include <stdio.h>
+//#include <stdio.h>
 float FOK = 0;
 float P = 0;
 
@@ -76,6 +76,9 @@ T MIN(T a, T b)
 {
 	return (a < b ? a : b);
 }
+
+#define PUSH_MX		(mxstack.push(ModelView))
+#define POP_MX		(ModelView = mxstack.pop())
 
 float doround(float a)
 {
@@ -504,7 +507,7 @@ struct MatrixStack
 		top = 0;
 	}
 
-	void push(const Matrix& m)
+	void push(Matrix m)
 	{
 		stack[top++] = m;
 	}
@@ -519,7 +522,6 @@ MatrixStack mxstack;
 
 Vector operator*(const Vector& v, const Matrix& m)
 {
-	static int a = 0;
 	Vector ret;
 
 	Matrix ize;
@@ -805,15 +807,13 @@ struct Ellipszoid: public Object
 
 struct Paraboloid: public Object
 {
-	Vector p0;
 	float h;
 	float a;
 	int rings;
 	int sides;
 
-	Paraboloid(Vector p, float _a, float _h, int numRings, int numSides)
+	Paraboloid(float _a, float _h, int numRings, int numSides)
 	{
-		p0 = p;
 		a = _a;
 		h = _h;
 		rings = numRings;
@@ -822,23 +822,24 @@ struct Paraboloid: public Object
 
 	float x(float u, float v)
 	{
-		return p0.x + 1.0f / a * sqrt(u / h) * cos(2 * M_PI * v);
+		return 1.0f / a * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	float y(float u, float v)
 	{
-		return p0.y + u * h;
+		return u * h;
 	}
 
 	float z(float u, float v)
 	{
-		return p0.z + (1.0f / a) * sqrt(u / h) * sin(2 * M_PI * v);
+		return (1.0f / a) * sqrt(u / h) * sin(2 * M_PI * v);
 	}
 
 	float xdu(float u, float v)
 	{
-		return (-1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v)
-				/ (2 * 2 * M_PI * u);
+		float aa = (-1.0f / a) * sqrt((u + 0.00001) / h) * cos(2 * M_PI * v);
+		float ret = aa / (2 * 2 * M_PI * (u + 0.00001));
+		return ret;
 	}
 
 	float ydu(float u, float v)
@@ -848,7 +849,8 @@ struct Paraboloid: public Object
 
 	float zdu(float u, float v)
 	{
-		return -a * sqrt(u / h) * sin(2 * M_PI * v) / (2 * 2 * M_PI * u);
+		return -a * sqrt((u + 0.00001) / h) * sin(2 * M_PI * v)
+				/ (2 * 2 * M_PI * (u + 0.00001));
 	}
 
 	float xdv(float u, float v)
@@ -1182,12 +1184,42 @@ struct Teglatest: public Object
 
 	void draw()
 	{
-		Teglalap f(a, c, res);
-		Teglalap u(a, b, res);
-		Teglalap r(c, b, res);
-		f.draw();
-		u.draw();
-		r.draw();
+		Teglalap B(a, c, res);
+		Teglalap D(a, b, res);
+		Teglalap L(c, b, res);
+
+		PUSH_MX;
+		ModelView.translate(a, 0, 0);
+		ModelView.rotate(180, 0, 0, 1);
+		D.draw();
+		POP_MX;
+
+		PUSH_MX;
+		ModelView.rotate(90, 0, 0, 1);
+		L.draw();
+		POP_MX;
+
+		PUSH_MX;
+		ModelView.rotate(270, 1, 0, 0);
+		B.draw();
+		POP_MX;
+
+		PUSH_MX;
+		ModelView.translate(0, c, 0);
+		D.draw();
+		POP_MX;
+
+		PUSH_MX;
+		ModelView.translate(a, c, 0);
+		ModelView.rotate(270, 0, 0, 1);
+		L.draw();
+		POP_MX;
+
+		PUSH_MX;
+		ModelView.translate(0, c, b);
+		ModelView.rotate(90, 1, 0, 0);
+		B.draw();
+		POP_MX;
 
 	}
 };
@@ -1289,17 +1321,17 @@ struct Kerek: public Object
 		setMaterial(EZUST);
 		for (int i = 0; i < kulloszam; ++i)
 		{
-			mxstack.push(ModelView);
+			PUSH_MX;
 			ModelView.rotate(90, 1, 0, 0);
 			float rot = (360.0f / kulloszam) * i;
 			ModelView.rotate(rot, 0, 1, 0);
 			kullok[i]->draw();
-			ModelView = mxstack.pop();
+			POP_MX;
 		}
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(0, 0, kerekagy->h * 0.5f);
 		kerekagy->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 		setMaterial(FEKETE);
 		float sp[4] =
 		{ 0, 0, 0, 1 };
@@ -1356,42 +1388,42 @@ struct BringaVaz: public Object
 
 	void draw()
 	{
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.rotate(90, 1, 0, 0);
 		ModelView.translate(w * -0.1f, 0, 0);
 		kozep->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(w * -0.1f, h - csoR, 0);
 		ModelView.rotate(270, 0, 1, 0);
 		jobbfont->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(w * -0.1f, 0, 0);
 		ModelView.rotate(270, 0, 1, 0);
 		float c = acos(MIN(h / jobblent->h, jobblent->h / h));
 		ModelView.rotate(90 - c * (180.0 / M_PI), 1, 0, 0);
 		jobblent->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(w * -0.1f, 0, 4 * csoR);
 		pedalcso->draw();
 		ModelView.translate(0, h - csoR, 0);
 		pedalcso->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(w * -0.1f, 0, 3 * csoR);
 		ModelView.rotate(90, 0, 1, 0);
 		ballent->draw();
 		ModelView.translate(6 * csoR, 0, 0);
 		ballent->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(w * -0.1f - ballent->h, 0, 3 * csoR);
 		ModelView.rotate(90, 0, 1, 0);
 		c = atan(MIN(h / ballent->h, ballent->h / h));
@@ -1399,7 +1431,7 @@ struct BringaVaz: public Object
 		balfont->draw();
 		ModelView.translate(6 * csoR, 0, 0);
 		balfont->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 	}
 
 };
@@ -1436,41 +1468,41 @@ struct Kormanymu: public Object
 
 	void draw()
 	{
-		mxstack.push(ModelView);
+		PUSH_MX;
 //		ModelView.rotate(FOK * -1, 0, 0, 1);
 		kerek->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
 		setMaterial(PIROS);
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(0, (-1.0f) * kerek->kerekagy->r,
 				kerek->gumi->inR * 2.0f);
 		ModelView.rotate(90, 1, 0, 0);
 		balvilla->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(0, (-1.0f) * kerek->kerekagy->r,
 				kerek->gumi->inR * -2.0f);
 		ModelView.rotate(90, 1, 0, 0);
 		jobbvilla->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(0, jobbvilla->h, villateteje->h * 0.5f);
 		villateteje->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(0, jobbvilla->h, 0);
 		ModelView.rotate(90, 1, 0, 0);
 		villanyak->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(0, jobbvilla->h + villanyak->h, kormany->h * 0.5f);
 		kormany->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 	}
 
 };
@@ -1479,18 +1511,11 @@ struct Ember: public Object
 {
 	Ellipszoid *fej;
 	Teglatest *torzs;
-	Teglatest *ballab_font;
-	Teglatest *ballab_lent;
-	Teglatest *ballabfej;
-	Teglatest *jobblab_font;
-	Teglatest *jobblab_lent;
-	Teglatest *jobblabfej;
-	Teglatest *balkez_font;
-	Teglatest *balkez_lent;
-	Teglatest *balkezfej;
-	Teglatest *jobbkez_font;
-	Teglatest *jobbkez_lent;
-	Teglatest *jobbkezfej;
+	Teglatest *lab;
+	Teglatest *labfej;
+	Teglatest *kez;
+
+	float w, h, d;
 
 	Ember(Vector fejmeret, Vector torzsmeret, float labhossz)
 	{
@@ -1499,41 +1524,65 @@ struct Ember: public Object
 				MAX(fejmeret.z * 20, 20.0f));
 		torzs = new Teglatest(torzsmeret.x, torzsmeret.y, torzsmeret.z, 10);
 
-		balkez_font = new Teglatest(fejmeret.x, torzsmeret.y, fejmeret.x, 10);
-		balkez_lent = NULL;
-		balkezfej = NULL;
-		jobbkez_font = NULL;
-		jobbkez_lent = NULL;
-		jobbkezfej = NULL;
-		ballab_font = NULL;
-		ballab_lent = NULL;
-		ballabfej = NULL;
-		jobblab_font = NULL;
-		jobblab_lent = NULL;
-		jobblabfej = NULL;
+		kez = new Teglatest(torzsmeret.x, fejmeret.x, fejmeret.x, 10);
+		lab = new Teglatest(torzsmeret.z, torzsmeret.y * 0.4f, labhossz, 10);
+		labfej = NULL;
+		w = torzsmeret.x;
+		h = torzsmeret.z + labhossz + fejmeret.z;
+		d = torzsmeret.y;
 	}
 
 	~Ember()
 	{
 		delete fej;
 		delete torzs;
-		delete ballab_font;
-		delete ballab_lent;
-		delete ballabfej;
-		delete jobblab_font;
-		delete jobblab_lent;
-		delete jobblabfej;
-		delete balkez_font;
-		delete balkez_lent;
-		delete balkezfej;
-		delete jobbkez_font;
-		delete jobbkez_lent;
-		delete jobbkezfej;
+		delete lab;
+		delete labfej;
+		delete kez;
 	}
 
 	void draw()
 	{
-		fej->draw();
+		setMaterial(KEK);
+		PUSH_MX;
+		ModelView.rotate(20, 0, 0, 1);
+		lab->draw();
+		PUSH_MX;
+		ModelView.translate(0,0,-torzs->b);
+		lab->draw();
+
+		POP_MX;
+		POP_MX;
+
+//		PUSH_MX;
+////		ModelView.translate(0, 0, 0);
+////		ModelView.rotate(315, 0, 0, 1);
+//		setMaterial(BOR);
+//		PUSH_MX;
+//		ModelView.translate(0,torzs->c + fej->c + h, 0);
+//		fej->draw();
+//		POP_MX;
+//		setMaterial(ZOLD);
+//		PUSH_MX;
+//		ModelView.translate(-fej->b * 0.9, -fej->a * 0.9, torzs->b * -0.5f);
+//		ModelView.rotate(270, 0, 0, 1);
+//		torzs->draw();
+//		POP_MX;
+//
+//		PUSH_MX;
+//		ModelView.translate(-fej->b * 0.9, -fej->a - kez->c,
+//				torzs->b * -0.5f - kez->b);
+//		ModelView.rotate(350, 0, 0, 1);
+//		kez->draw();
+//		POP_MX;
+//
+//		PUSH_MX;
+//		ModelView.translate(-fej->b * 0.9, -fej->a - kez->c, torzs->b * 0.5f);
+//		ModelView.rotate(350, 0, 0, 1);
+//		kez->draw();
+//		POP_MX;
+//
+//		POP_MX;
 	}
 };
 
@@ -1554,8 +1603,8 @@ struct Bringas: public Object
 		hatsokerek = new Kerek(kerekR, gumiR, kulloSzam);
 		kormany = new Kormanymu(h, kerekR, gumiR, kulloSzam);
 		vaz = new BringaVaz(h * 0.85f, w * 0.9f, gumiR);
-		rider = new Ember(Vector(kerekR * 0.5f, kerekR * 0.5f, kerekR * 0.5f),
-				Vector(kerekR * 2.0f, height, kerekR * 0.7f), height * 1.2);
+		rider = new Ember(Vector(kerekR * 0.3f, kerekR * 0.3f, kerekR * 0.3f),
+				Vector(kerekR * 1.7f, height * 0.5f, kerekR * 0.4f), height);
 	}
 
 	~Bringas()
@@ -1578,7 +1627,7 @@ struct Bringas: public Object
 		{
 			c = (c < 0 ? -1 : 1);
 		}
-		mxstack.push(ModelView);
+//		PUSH_MX;
 		ModelView.translate(pp.x, pp.y + h * 0.5f, pp.z);
 		if (!isnan(c))
 		{
@@ -1587,33 +1636,36 @@ struct Bringas: public Object
 		}
 		if (u != prev_u || v != prev_v)
 		{
-			printf("??? %f\n", p->z(u, v));
-			printf("Ide jöttem (%.1f, %.1f): %f, %f, %f\n", u, v, pp.x, pp.y,
-					pp.z);
+//			printf("Ide jöttem (%.1f, %.1f): %f, %f, %f\n", u, v, pp.x, pp.y,
+//					pp.z);
 			prev_u = u;
 			prev_v = v;
 		}
 		draw();
-		ModelView = mxstack.pop();
+//		POP_MX;
 	}
 
 	void draw()
 	{
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate((-1.0f) * w * 0.45f, 0, 0);
 		hatsokerek->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		ModelView.translate(w * 0.45f, 0, 0);
 //		ModelView.rotate(FOK, 0, 1, 0);
 		kormany->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 		setMaterial(PIROS);
 		vaz->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
+
+		PUSH_MX;
+		rider->draw();
+		POP_MX;
 	}
 };
 
@@ -1630,11 +1682,8 @@ struct Scene
 	unsigned char image[256][256][3];
 
 	Bringas *b1;
-	Ember *e1;
 	Bringas *b2;
-	Ember *e2;
 	Bringas *b3;
-	Ember *e3;
 
 	Paraboloid *p;
 
@@ -1643,7 +1692,6 @@ struct Scene
 		camera = NULL;
 		texids = 0;
 		b1 = b2 = b3 = NULL;
-		e1 = e2 = e3 = NULL;
 		p = NULL;
 		l0 = NULL;
 	}
@@ -1653,11 +1701,8 @@ struct Scene
 		delete camera;
 		delete l0;
 		delete b1;
-		delete e1;
 		delete b2;
-		delete e2;
 		delete b3;
-		delete e3;
 		delete p;
 
 	}
@@ -1685,8 +1730,8 @@ struct Scene
 
 	void build()
 	{
-		camera = new Camera(Vector(0, 1.4, 10), Vector(0, 0, 0),
-				Vector(0, 1, 0), 40.0f, 1.0f, 1.0f, 100.0f);
+		camera = new Camera(Vector(0, 1.3, 4), Vector(0, 0, 0), Vector(0, 1, 0),
+				80.0f, 1.0f, 0.5f, 100.0f);
 
 		Color diffuse(1, 1, 1);
 		Color ambient(0.2, 0.2, 0.2);
@@ -1697,7 +1742,7 @@ struct Scene
 		b2 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b3 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 
-		p = new Paraboloid(Vector(0, -b1->h, 0), 0.01, 10, 20, 100);
+		p = new Paraboloid(0.01, 10, 20, 200);
 
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
@@ -1717,17 +1762,18 @@ struct Scene
 		camera->setOGL();
 		l0->setOGL();
 
-		mxstack.push(ModelView);
-//		b1->draw();
-		ModelView = mxstack.pop();
+		PUSH_MX;
+//		ModelView.translate(0, b1->h, -1);
+		b1->drawOnParaboloid(p, 0.003, 0);
+		POP_MX;
 //
-		mxstack.push(ModelView);
-		b2->drawOnParaboloid(p, P, 0.5);
-		ModelView = mxstack.pop();
+		PUSH_MX;
+		b2->drawOnParaboloid(p, 0.003, 0.5);
+		POP_MX;
 
-		mxstack.push(ModelView);
+		PUSH_MX;
 //		b3->draw();
-		ModelView = mxstack.pop();
+		POP_MX;
 
 		setMaterial(FEHER);
 		glEnable(GL_TEXTURE_2D);
@@ -1749,6 +1795,32 @@ void onInitialization()
 	glEnable(GL_LIGHTING);
 	glShadeModel(GL_SMOOTH);
 
+	Matrix m;
+	float glm[16];
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	m.loadIdentity();
+
+	glPushMatrix();
+	mxstack.push(m);
+	glRotatef(10, 0, 0, 1);
+	m.rotate(10, 0, 0, 1);
+
+	glGetFloatv(GL_MODELVIEW_MATRIX, glm);
+	glPushMatrix();
+	mxstack.push(m);
+
+	glTranslatef(10, 2, 0);
+	m.translate(10, 2, 0);
+	glGetFloatv(GL_MODELVIEW_MATRIX, glm);
+
+	glPopMatrix();
+	m = mxstack.pop();
+	glGetFloatv(GL_MODELVIEW_MATRIX, glm);
+
+	glPopMatrix();
+	m = mxstack.pop();
 	scene.build();
 }
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
@@ -1798,11 +1870,11 @@ void onKeyboard(unsigned char key, int x, int y)
 		else
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		break;
-	case 't':
-		scene.p->rings /= 2;
+	case 'h':
+		scene.camera->eye.y -= 0.5;
 		break;
 	case 'z':
-		scene.p->rings *= 2;
+		scene.camera->eye.y += 0.5;
 		break;
 	case 'u':
 		FOK -= 1;
