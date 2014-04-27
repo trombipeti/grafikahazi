@@ -918,11 +918,34 @@ struct Paraboloid: public Object
 
 	}
 
-	float intersect(Vector ray_origin, Vector ray_dv)
+	float intersect(Vector ray_p, Vector ray_dv)
 	{
 		float t = -1;
+		ray_dv = ray_dv.norm();
 
-		return t;
+		float A = a * (ray_dv.x * ray_dv.x + ray_dv.y * ray_dv.y);
+		float B = 2 * a * (ray_p.x * ray_dv.x + ray_p.y * ray_dv.y) - ray_dv.z;
+		float C = a * (ray_p.x * ray_p.x + ray_p.y * ray_p.y) - ray_p.z;
+
+		float discrim = B * B - 4 * A * C;
+		if (discrim < 0)
+		{
+			return -1;
+		}
+
+		float t1 = ((-1.0 * B + sqrt(discrim)) / (2.0 * A));
+		float t2 = ((-1.0 * B - sqrt(discrim)) / (2.0 * A));
+		if ((t2 > t1 || t2 < 0.0001) && t1 > 0.0001)
+			t = t1;
+		if ((t1 > t2 || t1 < 0.0001) && t2 > 0.0001)
+			t = t2;
+
+		if (t > 0.0001)
+		{
+			return t;
+		}
+
+		return -1;
 	}
 };
 
