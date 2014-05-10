@@ -79,6 +79,9 @@ T MIN(T a, T b)
 #define PUSH_MX		(mxstack.push(ModelView))
 #define POP_MX		(ModelView = mxstack.pop())
 
+#define ALMOST_HALF	0.499999f
+
+
 float doround(float a)
 {
 	if (fabs(a) < 0.0001)
@@ -599,20 +602,20 @@ struct Paraboloid
 
 	float x(float u, float v)
 	{
-		return (u - 0.5f) * h;
+		return (u - ALMOST_HALF) * h;
 //		return 1.0f / a * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	float z(float u, float v)
 	{
 //		return a * (u * u + v * v);
-		return (v - 0.5f) * h;
+		return (v - ALMOST_HALF) * h;
 //		return u * h;
 	}
 
 	float y(float u, float v)
 	{
-		return a * h * h * ((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f));
+		return a * h * h * ((u - ALMOST_HALF) * (u - ALMOST_HALF) + (v - ALMOST_HALF) * (v - ALMOST_HALF));
 //		return v * h;
 //		return (1.0f / a) * sqrt(u / h) * sin(2 * M_PI * v);
 	}
@@ -634,7 +637,7 @@ struct Paraboloid
 
 	float ydu(float u, float v)
 	{
-		return 2 * a * (u - 0.5f) * h * h;
+		return 2 * a * (u - ALMOST_HALF) * h * h;
 //		return -a * sqrt((u + 0.00001) / h) * sin(2 * M_PI * v)
 //				/ (2 * 2 * M_PI * (u + 0.00001));
 	}
@@ -653,7 +656,7 @@ struct Paraboloid
 	float ydv(float u, float v)
 	{
 //		return 1;
-		return 2 * a * (v - 0.5f) * h * h;
+		return 2 * a * (v - ALMOST_HALF) * h * h;
 //		return (1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
@@ -940,7 +943,7 @@ struct Camera
 		glLoadIdentity();
 		gluLookAt(eye.x, eye.y, eye.z, lookat.x, lookat.y, lookat.z, vup.x,
 				vup.y, vup.z);
-		glRotatef(FOK, 0, 1, 0);
+//		glRotatef(FOK, 0, 1, 0);
 	}
 };
 
@@ -1601,6 +1604,10 @@ struct Bringas: public Object
 	Vector p0;
 	Vector v0;
 
+	float E;
+	float ve;
+	float he;
+
 	float rotation;
 	float h;
 	float w;
@@ -1616,6 +1623,9 @@ struct Bringas: public Object
 				Vector(kerekR * 2.0f, height * 0.8f, kerekR * 0.4f), height);
 		rotation = 0;
 		p0 = Vector(0, 0, 0);
+		E = 10;
+		ve = 0;
+		he = 10 - ve;
 	}
 
 	~Bringas()
@@ -1784,9 +1794,13 @@ struct Scene
 
 		PUSH_MX;
 //		ModelView.rotate(340, 0, 1, 0);
-		avatar->rotation = 225.0f;
-//		avatar->drawOnParaboloid(p, 0.001, 0.875);
-		avatar->draw(p);
+		if(P > 0.99) {
+			avatar->rotation = 180.0f;
+		} else if (P < 0.01) {
+			avatar->rotation = 0;
+		}
+		avatar->drawOnParaboloid(p, P, 0.5);
+//		avatar->draw(p);
 		POP_MX;
 //
 		PUSH_MX;
@@ -1795,8 +1809,7 @@ struct Scene
 		POP_MX;
 
 		PUSH_MX;
-		b3->rotation = 300.0f;
-		b3->drawOnParaboloid(p, P, 0.5);
+//		b3->drawOnParaboloid(p, P, 0.5);
 //		b3->draw(p);
 		POP_MX;
 
@@ -1808,14 +1821,15 @@ struct Scene
 
 	void renderBigFov()
 	{
+		camera->lookat = avatar->p0;
 		camera->setOGL();
 		render();
 	}
 
 	void renderAvatar()
 	{
-		avatarcam->eye = avatar->p0 + Vector(0,3,0);
-		avatarcam->lookat = avatarcam->eye + Vector(1,0,0);
+		avatarcam->eye = avatar->p0 + Vector(0, 1.2, 0);
+		avatarcam->lookat = avatarcam->eye + Vector(0.2, 0, 0);
 		avatarcam->vup = Vector(0, 1, 0);
 		avatarcam->setOGL();
 		render();
@@ -1840,9 +1854,9 @@ void onInitialization()
 void onDisplay()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
-	glClearColor(0, 0, 0, 1);
+	glClearColor(0, 0.2, 0.5, 1);
 
-	Ellipszoid l(1, 1, 1, 20, 20);
+	Ellipszoid l(0.1, 0.1, 0.1, 20, 20);
 
 	glViewport(0, 0, screenWidth, screenHeight / 2 - 1);
 
@@ -1958,7 +1972,7 @@ void onMouseMotion(int x, int y)
 void onIdle()
 {
 	long time = glutGet(GLUT_ELAPSED_TIME);	// program inditasa ota eltelt ido
-	P = 0.5f * (sin(time / 1000.0f) + 1.0f);
+	P = 0.5f * (sin(time / 5000.0f) + 1.0f);
 	l0->pos.x = 2 * cos(fmod((time / 10) * 0.01, 360.0f));
 	l0->pos.y = 3 + sin(fmod((time / 10) * 0.05, 360.0f));
 	l0->pos.z = 2 * sin(fmod((time / 10) * 0.01, 360.0f));
