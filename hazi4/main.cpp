@@ -62,7 +62,7 @@
 // Innentol modosithatod...
 
 float FOK = 0;
-float P = 0;
+float P = 2;
 
 template<typename T>
 T MAX(T a, T b)
@@ -275,8 +275,8 @@ void setMaterial(enum MATERIAL m)
 		float d[4] =
 		{ 0.01, 0.01, 0.01, 1 };
 		float sp[4] =
-		{ 0.2, 0.2, 0.2, 1 };
-		float sh = 128;
+		{ 0, 0, 0, 1 };
+		float sh = 0;
 		glMaterialfv(GL_FRONT, GL_AMBIENT, a);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, d);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
@@ -599,49 +599,62 @@ struct Paraboloid
 
 	float x(float u, float v)
 	{
-		return 1.0f / a * sqrt(u / h) * cos(2 * M_PI * v);
-	}
-
-	float y(float u, float v)
-	{
-		return u * h;
+		return (u - 0.5f) * h;
+//		return 1.0f / a * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	float z(float u, float v)
 	{
-		return (1.0f / a) * sqrt(u / h) * sin(2 * M_PI * v);
+//		return a * (u * u + v * v);
+		return (v - 0.5f) * h;
+//		return u * h;
+	}
+
+	float y(float u, float v)
+	{
+		return a * h * h * ((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f));
+//		return v * h;
+//		return (1.0f / a) * sqrt(u / h) * sin(2 * M_PI * v);
 	}
 
 	float xdu(float u, float v)
 	{
-		float aa = (-1.0f / a) * sqrt((u + 0.00001) / h) * cos(2 * M_PI * v);
-		float ret = aa / (2 * 2 * M_PI * (u + 0.00001));
-		return ret;
-	}
-
-	float ydu(float u, float v)
-	{
-		return -1;
+		return h;
+//		float aa = (-1.0f / a) * sqrt((u + 0.00001) / h) * cos(2 * M_PI * v);
+//		float ret = aa / (2 * 2 * M_PI * (u + 0.00001));
+//		return ret;
 	}
 
 	float zdu(float u, float v)
 	{
-		return -a * sqrt((u + 0.00001) / h) * sin(2 * M_PI * v)
-				/ (2 * 2 * M_PI * (u + 0.00001));
+//		return a * 2 * u;
+		return 0;
+//		return 1;
+	}
+
+	float ydu(float u, float v)
+	{
+		return 2 * a * (u - 0.5f) * h * h;
+//		return -a * sqrt((u + 0.00001) / h) * sin(2 * M_PI * v)
+//				/ (2 * 2 * M_PI * (u + 0.00001));
 	}
 
 	float xdv(float u, float v)
 	{
-		return (-1.0f) * a * sqrt(u / h) * sin(2 * M_PI * v);
+		return 0;
+//		return (-1.0f) * a * sqrt(u / h) * sin(2 * M_PI * v);
 	}
 
-	float ydv(float u, float v)
-	{
-		return 0;
-	}
 	float zdv(float u, float v)
 	{
-		return (1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v);
+//		return a * 2 * v;
+		return h;
+	}
+	float ydv(float u, float v)
+	{
+//		return 1;
+		return 2 * a * (v - 0.5f) * h * h;
+//		return (1.0f / a) * sqrt(u / h) * cos(2 * M_PI * v);
 	}
 
 	Vector point(float u, float v, bool transform = true)
@@ -656,7 +669,7 @@ struct Paraboloid
 
 	Vector normal(float u, float v, bool transform = true)
 	{
-		Vector ret = (Vector(xdv(u, v), ydv(u, v), zdv(u, v))
+		Vector ret = ((-1.0f) * (Vector(xdv(u, v), ydv(u, v), zdv(u, v)))
 				% Vector(xdu(u, v), ydu(u, v), zdu(u, v)));
 		if (transform)
 		{
@@ -668,7 +681,7 @@ struct Paraboloid
 	void draw()
 	{
 
-		float u_step = (h / rings);
+		float u_step = 1.0f / rings;
 		float v_step = 1.0f / sides;
 		for (float u = 0; u < 1.0f; u += u_step)
 		{
@@ -717,6 +730,8 @@ struct Paraboloid
 	float intersect(Vector ray_p, Vector ray_dv)
 	{
 		float t = -1;
+		// TODO
+		return t;
 		ray_dv = ray_dv.norm();
 
 		float A = a * (ray_dv.x * ray_dv.x + ray_dv.y * ray_dv.y);
@@ -1067,7 +1082,7 @@ struct Henger: public Object
 
 		doDraw(u_step, v_step, p);
 
-		for (float u = 0; u < 1.0f; u += u_step)
+		for (float u = 0; u < 1.0f && false; u += u_step)
 		{
 			glBegin(GL_TRIANGLES);
 			Vector n0(0, 0, 1);
@@ -1308,11 +1323,11 @@ struct Kerek: public Object
 	Kerek(float kerekR, float gumiR, int kulloSzam)
 	{
 		kulloszam = kulloSzam > 100 ? 100 : kulloSzam;
-		gumi = new Torus(gumiR, kerekR, 20, 30);
-		kerekagy = new Henger(0.8 * gumiR, gumiR, 10, 10);
+		gumi = new Torus(gumiR, kerekR, 10, 20);
+		kerekagy = new Henger(0.8 * gumiR, gumiR, 2, 8);
 		for (int i = 0; i < kulloszam; ++i)
 		{
-			kullok[i] = new Henger(0.02, kerekR, 10, 10);
+			kullok[i] = new Henger(0.02, kerekR, 1, 5);
 		}
 	}
 
@@ -1368,12 +1383,12 @@ struct BringaVaz: public Object
 		csoR = cso_radius;
 		h = height;
 		w = width;
-		jobbfont = new Henger(csoR, w * 0.6, 2, 10);
-		kozep = new Henger(csoR, h, 2, 10);
-		jobblent = new Henger(csoR, sqrt(pow(w * 0.6, 2) + pow(h, 2)), 2, 10);
-		pedalcso = new Henger(csoR, csoR * 8, 2, 10);
-		ballent = new Henger(csoR, w * 0.4, 2, 10);
-		balfont = new Henger(csoR, sqrt(pow(w * 0.4, 2) + pow(h, 2)), 2, 10);
+		jobbfont = new Henger(csoR, w * 0.6, 2, 8);
+		kozep = new Henger(csoR, h, 2, 8);
+		jobblent = new Henger(csoR, sqrt(pow(w * 0.6, 2) + pow(h, 2)), 2, 8);
+		pedalcso = new Henger(csoR, csoR * 8, 2, 8);
+		ballent = new Henger(csoR, w * 0.4, 2, 8);
+		balfont = new Henger(csoR, sqrt(pow(w * 0.4, 2) + pow(h, 2)), 2, 8);
 	}
 
 	~BringaVaz()
@@ -1448,12 +1463,12 @@ struct Kormanymu: public Object
 	Kormanymu(float h, float kerekR, float gumiR, int kullok)
 	{
 		kerek = new Kerek(kerekR, gumiR, kullok);
-		balvilla = new Henger(gumiR, h * 0.7f, 5, 10);
-		jobbvilla = new Henger(gumiR, h * 0.7f, 5, 10);
-		villateteje = new Henger(gumiR, kerek->gumi->inR * 4.0f + 2 * gumiR, 5,
-				10);
-		villanyak = new Henger(gumiR, h * 0.25f, 5, 10);
-		kormany = new Henger(gumiR, h * 0.7f, 5, 10);
+		balvilla = new Henger(gumiR, h * 0.7f, 1, 8);
+		jobbvilla = new Henger(gumiR, h * 0.7f, 1, 8);
+		villateteje = new Henger(gumiR, kerek->gumi->inR * 4.0f + 2 * gumiR, 1,
+				8);
+		villanyak = new Henger(gumiR, h * 0.25f, 1, 8);
+		kormany = new Henger(gumiR, h * 0.7f, 1, 8);
 	}
 
 	~Kormanymu()
@@ -1517,13 +1532,11 @@ struct Ember: public Object
 
 	Ember(Vector fejmeret, Vector torzsmeret, float labhossz)
 	{
-		fej = new Ellipszoid(fejmeret.x, fejmeret.y, fejmeret.z,
-				MAX(MAX(fejmeret.x, fejmeret.y) * 50, 20.0f),
-				MAX(fejmeret.z * 20, 20.0f));
-		torzs = new Teglatest(torzsmeret.x, torzsmeret.y, torzsmeret.z, 10);
+		fej = new Ellipszoid(fejmeret.x, fejmeret.y, fejmeret.z, 20, 20);
+		torzs = new Teglatest(torzsmeret.x, torzsmeret.y, torzsmeret.z, 1);
 
-		kez = new Teglatest(torzsmeret.x * 0.95f, fejmeret.x, fejmeret.x, 10);
-		lab = new Teglatest(torzsmeret.z, torzsmeret.y * 0.3f, labhossz, 10);
+		kez = new Teglatest(torzsmeret.x * 0.95f, fejmeret.x, fejmeret.x, 1);
+		lab = new Teglatest(torzsmeret.z, torzsmeret.y * 0.3f, labhossz, 1);
 		labfej = NULL;
 	}
 
@@ -1585,8 +1598,10 @@ struct Bringas: public Object
 	BringaVaz *vaz;
 	Ember *rider;
 
-	float rotation;
+	Vector p0;
+	Vector v0;
 
+	float rotation;
 	float h;
 	float w;
 
@@ -1600,6 +1615,7 @@ struct Bringas: public Object
 		rider = new Ember(Vector(kerekR * 0.3f, kerekR * 0.3f, kerekR * 0.3f),
 				Vector(kerekR * 2.0f, height * 0.8f, kerekR * 0.4f), height);
 		rotation = 0;
+		p0 = Vector(0, 0, 0);
 	}
 
 	~Bringas()
@@ -1617,13 +1633,14 @@ struct Bringas: public Object
 		Vector pp = p->point(u, v, false);
 		Vector pn = p->normal(u, v);
 		Vector axis = Vector(0, 1, 0) % pn;
+		v0 = axis;
 		float c = Vector(0, 1, 0) * pn.round();
 		if (fabs(c) > 0.999)
 		{
 			c = (c < 0 ? -1 : 1);
 		}
 		PUSH_MX;
-		ModelView.loadIdentity();
+//		ModelView.loadIdentity();
 		ModelView.translate(pp.x, pp.y + h * 0.5f, pp.z);
 		if (!isnan(c))
 		{
@@ -1636,6 +1653,7 @@ struct Bringas: public Object
 			prev_u = u;
 			prev_v = v;
 		}
+		p0 = p->point(u, v, true);
 		draw(p);
 		POP_MX;
 	}
@@ -1671,11 +1689,12 @@ const int screenHeight = 600;
 struct Scene
 {
 	Camera *camera;
+	Camera *avatarcam;
 
 	unsigned int texids;
 	unsigned char image[256][256][3];
 
-	Bringas *b1;
+	Bringas *avatar;
 	Bringas *b2;
 	Bringas *b3;
 
@@ -1683,16 +1702,17 @@ struct Scene
 
 	Scene()
 	{
-		camera = NULL;
+		camera = avatarcam = NULL;
 		texids = 0;
-		b1 = b2 = b3 = NULL;
+		avatar = b2 = b3 = NULL;
 		p = NULL;
 	}
 
 	~Scene()
 	{
 		delete camera;
-		delete b1;
+		delete avatarcam;
+		delete avatar;
 		delete b2;
 		delete b3;
 		delete p;
@@ -1730,14 +1750,17 @@ struct Scene
 		camera = new Camera(Vector(0, 13, 13), Vector(0, 0.5, 0),
 				Vector(0, 1, 0), 20.0f, 1.0f, 1.0f, 100.0f);
 
+		avatarcam = new Camera(Vector(0, 0, 0), Vector(0, 0, -1),
+				Vector(0, 1, 0), 90.0f, 1.0f, 1.0f, 100.0f);
+
 		l0 = new Light(GL_LIGHT0, Vector(0, 2, 2), Color(1, 1, 1),
 				Color(0.4, 0.4, 0.4), Color(5, 5, 5));
 
-		b1 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
+		avatar = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b2 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 		b3 = new Bringas(0.6, 1.2, 0.3, 0.02, 10);
 
-		p = new Paraboloid(0.01, 10, 200, 500);
+		p = new Paraboloid(0.025, 30, 20, 20);
 
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
@@ -1754,7 +1777,6 @@ struct Scene
 
 	void render()
 	{
-		camera->setOGL();
 //		l0.pos = Vector(0,0,0);
 		l0->setOGL();
 //		Light l(GL_LIGHT0, Vector(0, 0, 0), ambient, diffuse, specular);
@@ -1762,23 +1784,41 @@ struct Scene
 
 		PUSH_MX;
 //		ModelView.rotate(340, 0, 1, 0);
-		b1->rotation = 225.0f;
-		b1->drawOnParaboloid(p, 0.001, 0.875);
+		avatar->rotation = 225.0f;
+//		avatar->drawOnParaboloid(p, 0.001, 0.875);
+		avatar->draw(p);
 		POP_MX;
 //
 		PUSH_MX;
-		b2->drawOnParaboloid(p, 0.003, 0.5);
+		b2->drawOnParaboloid(p, 0.3, 0.5);
+//		b2->draw(p);
 		POP_MX;
 
 		PUSH_MX;
 		b3->rotation = 300.0f;
-		b3->drawOnParaboloid(p, 0.002, 0.7);
+		b3->drawOnParaboloid(p, P, 0.5);
+//		b3->draw(p);
 		POP_MX;
 
 		setMaterial(FEHER);
 		glEnable(GL_TEXTURE_2D);
 		p->draw();
 		glDisable(GL_TEXTURE_2D);
+	}
+
+	void renderBigFov()
+	{
+		camera->setOGL();
+		render();
+	}
+
+	void renderAvatar()
+	{
+		avatarcam->eye = avatar->p0 + Vector(0,3,0);
+		avatarcam->lookat = avatarcam->eye + Vector(1,0,0);
+		avatarcam->vup = Vector(0, 1, 0);
+		avatarcam->setOGL();
+		render();
 	}
 };
 
@@ -1794,41 +1834,43 @@ void onInitialization()
 	glEnable(GL_LIGHTING);
 	glShadeModel(GL_SMOOTH);
 
-	Matrix m;
-	float glm[16];
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	m.loadIdentity();
-
-	glPushMatrix();
-	mxstack.push(m);
-	glRotatef(10, 0, 0, 1);
-	m.rotate(10, 0, 0, 1);
-
-	glGetFloatv(GL_MODELVIEW_MATRIX, glm);
-	glPushMatrix();
-	mxstack.push(m);
-
-	glTranslatef(10, 2, 0);
-	m.translate(10, 2, 0);
-	glGetFloatv(GL_MODELVIEW_MATRIX, glm);
-
-	glPopMatrix();
-	m = mxstack.pop();
-	glGetFloatv(GL_MODELVIEW_MATRIX, glm);
-
-	glPopMatrix();
-	m = mxstack.pop();
 	scene.build();
 }
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
-	glClearColor(0, 0.2, 0.6, 1);
-// ..
-	scene.render();
+	glClearColor(0, 0, 0, 1);
+
+	Ellipszoid l(1, 1, 1, 20, 20);
+
+	glViewport(0, 0, screenWidth, screenHeight / 2 - 1);
+
+	PUSH_MX;
+	scene.camera->asp = screenWidth / (float) (screenHeight / 2 - 1);
+	scene.renderBigFov();
+
+	glPushMatrix();
+	glTranslatef(l0->pos.x, l0->pos.y, l0->pos.z);
+
+	l.draw(NULL);
+	glPopMatrix();
+
+	POP_MX;
+
+	glViewport(0, screenHeight / 2 + 1, screenWidth, screenHeight);
+	PUSH_MX;
+	scene.avatarcam->asp = screenWidth / (float) (screenHeight / 2 - 1);
+	scene.renderAvatar();
+
+	glPushMatrix();
+	glTranslatef(l0->pos.x, l0->pos.y, l0->pos.z);
+
+	l.draw(NULL);
+	glPopMatrix();
+
+	POP_MX;
+
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
 }
@@ -1838,6 +1880,12 @@ void onKeyboard(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
+	case 'r':
+
+		break;
+	case 'l':
+
+		break;
 	case 'a':
 		scene.camera->eye.x -= 1;
 		break;
@@ -1850,17 +1898,11 @@ void onKeyboard(unsigned char key, int x, int y)
 	case 's':
 		scene.p->a /= 2;
 		break;
-	case 'k':
-		P += 0.001;
-		break;
-	case 'l':
-		P -= 0.001;
-		break;
 	case 'o':
-		scene.camera->fov += 5.0f;
+		scene.camera->fov += 2.5f;
 		break;
 	case 'p':
-		scene.camera->fov -= 5.0f;
+		scene.camera->fov -= 2.5f;
 		break;
 	case 'f':
 		line = !line;
@@ -1916,10 +1958,10 @@ void onMouseMotion(int x, int y)
 void onIdle()
 {
 	long time = glutGet(GLUT_ELAPSED_TIME);	// program inditasa ota eltelt ido
-//	FOK = fmod(time / 10.0f, 360.0f);
-//	scene.l0->pos.x = 2 * cos(fmod((time / 10) * 0.01, 360.0f));
-//	scene.l0->pos.y = 3 + sin(fmod((time / 10) * 0.05, 360.0f));
-//	scene.l0->pos.z = 2 * sin(fmod((time / 10) * 0.01, 360.0f));
+	P = 0.5f * (sin(time / 1000.0f) + 1.0f);
+	l0->pos.x = 2 * cos(fmod((time / 10) * 0.01, 360.0f));
+	l0->pos.y = 3 + sin(fmod((time / 10) * 0.05, 360.0f));
+	l0->pos.z = 2 * sin(fmod((time / 10) * 0.01, 360.0f));
 	glutPostRedisplay();
 
 }

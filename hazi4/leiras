@@ -20,3 +20,33 @@ Készítsen kerékpáros katlant legalább három biciklizővel.
  [ ] A kerékpáros árnyékot vet a katlanra.
 
  [X] A kamerát úgy kell beállítani, hogy a kerékpárosok látszódjanak a képen.
+ 
+ -------------------------------------------------------------------
+ Animálja az előző feladat bicikliseit, amelyekből
+ [ ] az egyik az avatár.
+ 
+ [X] A biciklik, a biciklis, az árnyékok és a katlan megjelenése az első feladatban leírtaknak megfelelő.
+ 
+ [ ] A virtuális világban a nehézségi erő a paraboloid tengelyével párhuzamos irányban lefelé mutat.
+ 
+ [ ] A biciklik mozgási és helyzeti energiája állandó, a gördülés veszteségmentes, a kerekek tehetetlenségi nyomatéka zérus.
+ 
+ [ ] A kerekek forognak a gumi a talajon nem csúszik meg.
+ 
+ [ ] Amikor a biciklik az emelkedőn megállnak és hátra gurulnának, akkor pillanatszerűen megfordulnak.
+ 
+ [ ]A biciklik pillanatnyi sebességvektora a kormány irányába mutat.
+ 
+[ ] Az avatár kormánya az 'r' és 'l' billentyűkkel a biciklihez képest +5, illetve -5 fokkal fordítható (max +/-30 fokig lehet a kormányt forgatni).
+
+[ ] A pontszerű fényforrás pályája egy kör és egy szinuszhullám összege.
+
+[ ] A kép egybevágó részre (2 viewport) van osztva,
+
+[ ] a felső részben az avatár szemszögéből látjuk a világot,
+
+[ ] az alsó részben egy rögzített ponton lévő kamerából, amely mindig az avatárra néz.
+
+
+
+
